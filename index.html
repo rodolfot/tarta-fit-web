@@ -453,7 +453,7 @@ details[open] > summary::after { transform:translateY(-30%) rotate(180deg); }
    GPS. Coach IA (Claude).
    ==================================================================== */
 "use strict";
-const APP_VERSION = "2026-06-15 · b10";
+const APP_VERSION = "2026-06-15 · b11";
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const todayKey = (d=new Date())=> d.toISOString().slice(0,10);
@@ -1424,13 +1424,20 @@ async function openCoach(){
   const cfg=await DB.kvGet("coach",{key:"",model:"claude-sonnet-4-6"});
   if(!cfg.key){
     openSheet(`<h2>🤖 Coach TF</h2><p class="muted" style="font-size:var(--text-sm);margin-bottom:14px">Cole sua chave da API <b>Anthropic (Claude)</b>. Ela fica salva <b>só no seu navegador</b> (IndexedDB) e é enviada apenas para a Anthropic.</p>
+      <a class="btn btn-block" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="margin-bottom:12px">🔑 Pegar minha chave →</a>
+      <details style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600;font-size:var(--text-sm)">Não sei como conseguir a chave</summary>
+        <ol class="muted" style="font-size:var(--text-sm);margin:10px 0 0 18px;line-height:1.7">
+          <li>Crie/acesse a conta no <b>console.anthropic.com</b>.</li>
+          <li>Em <b>Billing</b>, adicione créditos (a partir de US$ 5) — assinatura do Claude.ai não serve.</li>
+          <li>Em <b>API Keys → Create Key</b>, copie a chave (<code>sk-ant-...</code>, aparece só uma vez).</li>
+          <li>Cole abaixo e ative. Custo por conversa é de centavos.</li>
+        </ol></details>
       <div class="field"><label>API key (sk-ant-...)</label><input class="input" id="coach-key" type="password" placeholder="sk-ant-..."></div>
       <div class="field"><label>Modelo</label><select class="input" id="coach-model">
         <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (recomendado)</option>
         <option value="claude-opus-4-8">Claude Opus 4.8 (mais capaz)</option>
         <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (mais rápido)</option></select></div>
-      <button class="btn btn-primary btn-block" onclick="saveCoach()">Ativar Coach</button>
-      <p class="faint" style="font-size:var(--text-xs);margin-top:10px">Pegue sua chave em console.anthropic.com</p>`);
+      <button class="btn btn-primary btn-block" onclick="saveCoach()">Ativar Coach</button>`);
     return;
   }
   renderCoachChat(cfg);
