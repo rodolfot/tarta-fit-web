@@ -450,6 +450,59 @@ const DEFAULT_PLAN = {
   ]
 };
 const PHRASES=["Constância vence intensidade.","Um treino de cada vez.","Você contra você de ontem.","O suor de hoje é a força de amanhã.","Pequenos hábitos, grandes resultados.","Apareça. O resto a gente ajusta."];
+const PRESETS=[
+  { id:"inic30", nm:"Iniciante — 30 dias (3× A/B)", tag:"Recomeçar do zero",
+    desc:"3 dias/semana, ~45 min, full body alternando A e B. Feito para você manter por 30 dias sem desistir. Emagrecer + ganhar massa. Ajuste as cargas no 1º treino.",
+    make:()=>({name:"Iniciante 30 dias — A/B", days:[
+      {name:"Treino A", exercises:[
+        {id:uid(),name:"Agachamento goblet",muscle:"Pernas",sets:3,reps:10,load:12},
+        {id:uid(),name:"Supino com halteres",muscle:"Peito",sets:3,reps:10,load:12},
+        {id:uid(),name:"Remada curvada (halteres)",muscle:"Costas",sets:3,reps:10,load:12},
+        {id:uid(),name:"Desenvolvimento sentado",muscle:"Ombro",sets:2,reps:12,load:8},
+        {id:uid(),name:"Elevação pélvica (hip thrust)",muscle:"Glúteo",sets:3,reps:12,load:20},
+        {id:uid(),name:"Prancha (30s)",muscle:"Core",sets:3,reps:30,load:0},
+      ]},
+      {name:"Treino B", exercises:[
+        {id:uid(),name:"Afundo/passada (halteres)",muscle:"Pernas",sets:3,reps:10,load:8},
+        {id:uid(),name:"Puxada alta",muscle:"Costas",sets:3,reps:10,load:25},
+        {id:uid(),name:"Supino inclinado (halteres)",muscle:"Peito",sets:3,reps:10,load:10},
+        {id:uid(),name:"Rosca direta",muscle:"Bíceps",sets:2,reps:12,load:8},
+        {id:uid(),name:"Tríceps na corda",muscle:"Tríceps",sets:2,reps:12,load:15},
+        {id:uid(),name:"Panturrilha em pé",muscle:"Panturrilha",sets:3,reps:15,load:20},
+        {id:uid(),name:"Abdominal",muscle:"Core",sets:3,reps:15,load:0},
+      ]},
+    ]})},
+  { id:"casa", nm:"Em casa — peso do corpo (progressivo)", tag:"Zero equipamento",
+    desc:"Sem academia, sem comprar nada. Full body A/B só com o peso do corpo + corrida no parque. Fica mais difícil a cada semana mudando a variação/reps (veja o guia de 4 semanas no Coach).",
+    make:()=>({name:"Em casa — peso do corpo", days:[
+      {name:"Casa A", exercises:[
+        {id:uid(),name:"Agachamento livre",muscle:"Pernas",sets:3,reps:12,load:0},
+        {id:uid(),name:"Flexão (incline se precisar)",muscle:"Peito",sets:3,reps:8,load:0},
+        {id:uid(),name:"Afundo alternado",muscle:"Pernas",sets:3,reps:10,load:0},
+        {id:uid(),name:"Elevação pélvica",muscle:"Glúteo",sets:3,reps:15,load:0},
+        {id:uid(),name:"Prancha (segundos)",muscle:"Core",sets:3,reps:30,load:0},
+      ]},
+      {name:"Casa B", exercises:[
+        {id:uid(),name:"Remada na mesa (australiana)",muscle:"Costas",sets:3,reps:8,load:0},
+        {id:uid(),name:"Flexão fechada (diamante)",muscle:"Tríceps",sets:3,reps:8,load:0},
+        {id:uid(),name:"Agachamento búlgaro (apoio no sofá)",muscle:"Pernas",sets:3,reps:8,load:0},
+        {id:uid(),name:"Superman",muscle:"Lombar",sets:3,reps:12,load:0},
+        {id:uid(),name:"Wall sit (segundos)",muscle:"Pernas",sets:3,reps:30,load:0},
+        {id:uid(),name:"Abdominal",muscle:"Core",sets:3,reps:15,load:0},
+      ]},
+    ]})},
+  { id:"fb3", nm:"Full Body 3×", tag:"Simples e direto",
+    desc:"3 treinos iguais por semana com os básicos. Bom quando você quer pensar zero e só executar.",
+    make:()=>({name:"Full Body 3×", days:[
+      {name:"Full Body", exercises:[
+        {id:uid(),name:"Agachamento",muscle:"Pernas",sets:3,reps:10,load:20},
+        {id:uid(),name:"Supino reto",muscle:"Peito",sets:3,reps:10,load:20},
+        {id:uid(),name:"Remada",muscle:"Costas",sets:3,reps:10,load:20},
+        {id:uid(),name:"Desenvolvimento",muscle:"Ombro",sets:3,reps:12,load:10},
+        {id:uid(),name:"Prancha (30s)",muscle:"Core",sets:3,reps:30,load:0},
+      ]},
+    ]})},
+];
 const FASTS={ "16:8":16,"18:6":18,"20:4":20,"OMAD":23,"Livre":0 };
 
 let S = {
@@ -842,8 +895,8 @@ async function renderWeek(){
 function renderCadastrar(){ renderCadTreino(); renderCadDieta(); renderCadCorpo(); }
 function renderCadTreino(){
   const el=$("#cad-treino");
-  let html=`<div class="card"><div class="row between"><div><span class="eyebrow">Plano ativo</span><h3 style="font-size:var(--text-lg)">${S.plan.name}</h3></div>
-    <button class="chip" onclick="genWorkout()">🧠 Gerar</button></div></div>`;
+  let html=`<div class="card"><div class="row between wrap" style="gap:8px"><div><span class="eyebrow">Plano ativo</span><h3 style="font-size:var(--text-lg)">${S.plan.name}</h3></div>
+    <div class="row" style="gap:6px"><button class="chip active" onclick="openPresets()">📋 Prontos</button><button class="chip" onclick="genWorkout()">🧠 Gerar</button></div></div></div>`;
   S.plan.days.forEach((day,di)=>{
     html+=`<div class="card" style="margin-top:var(--sp-4)"><div class="row between"><input class="input" style="font-weight:700;max-width:60%" value="${day.name}" onchange="renameDay(${di},this.value)">
       <button class="btn btn-sm" onclick="addExercise(${di})">+ Exercício</button></div><div style="margin-top:12px">`;
@@ -898,6 +951,22 @@ function doGenWorkout(){
   const order=days<=3?["Treino Full Body","Treino Empurrar","Treino Puxar"]:["Treino Empurrar","Treino Puxar","Treino Pernas","Treino Full Body","Treino Empurrar"];
   S.plan={name:`Plano gerado — ${goal}`, days: order.slice(0,days).map(n=>({name:n,exercises:pool[n].map(([nm,m])=>({id:uid(),name:nm,muscle:m,sets:goal==="forca"?5:4,reps,load:20}))}))};
   savePlan(); closeSheet(); renderCadTreino(); renderHoje(); toast("Plano gerado! Ajuste as cargas.");
+}
+function openPresets(){
+  openSheet(`<h2>📋 Planos prontos</h2>
+    <p class="faint" style="font-size:var(--text-xs);margin-bottom:14px">Escolha um plano para começar. Ele substitui o plano ativo (seu histórico de sessões é mantido).</p>
+    <div class="stack">${PRESETS.map(p=>`<div class="card" style="background:var(--surface-2)">
+      <span class="tag">${p.tag}</span>
+      <h3 style="font-size:var(--text-base);margin:8px 0 4px">${p.nm}</h3>
+      <p class="muted" style="font-size:var(--text-sm)">${p.desc}</p>
+      <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="applyPreset('${p.id}')">Usar este plano</button>
+    </div>`).join("")}</div>`);
+}
+async function applyPreset(id){
+  const p=PRESETS.find(x=>x.id===id); if(!p)return;
+  S.plan=p.make(); await savePlan(); closeSheet(); renderCadTreino(); renderHoje();
+  toast(`Plano "${S.plan.name}" ativado 💪`,"ok");
+  goScreen("hoje");
 }
 function exportPlan(){ download("tartafit-plano.json", JSON.stringify(S.plan,null,2)); }
 function importPlan(){
@@ -1292,7 +1361,7 @@ function toast(msg,kind=""){ const t=document.createElement("div"); t.className=
 function download(name,content){ const b=new Blob([content],{type:"application/json"}); const u=URL.createObjectURL(b);
   const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
 /* expose for inline handlers */
-Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit});
+Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit});
 
 boot().catch(e=>{ document.body.innerHTML=`<div style="padding:40px;font-family:sans-serif">Erro ao iniciar: ${e.message}. Seu navegador suporta IndexedDB?</div>`; });
 </script>
