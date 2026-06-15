@@ -309,13 +309,6 @@ canvas { max-width:100%; }
       </div>
     </section>
 
-    <!-- Missão de hoje -->
-    <div class="card" id="missionCard">
-      <div class="row between"><span class="eyebrow">Missão de hoje</span><span class="muted" id="missionPct">0%</span></div>
-      <div class="bar" style="margin:12px 0"><i id="missionBar" style="width:0%"></i></div>
-      <div id="missionList" class="stack" style="font-size:var(--text-sm)"></div>
-    </div>
-
     <!-- treino de hoje -->
     <div class="section-title"><h2>Treino de hoje</h2><button class="chip" id="editTrainBtn">Editar ▸</button></div>
     <div class="card" id="todayWorkout"></div>
@@ -704,6 +697,7 @@ async function computeStreak(){
 }
 
 async function renderMission(){
+  if(!$("#missionBar")) return; // card removido da Hoje
   const tk=todayKey();
   const foods=(await DB.all("foods")).filter(f=>f.date===tk);
   const water=await DB.kvGet("water_"+tk,0);
