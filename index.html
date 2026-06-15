@@ -453,7 +453,7 @@ details[open] > summary::after { transform:translateY(-30%) rotate(180deg); }
    GPS. Coach IA (Claude).
    ==================================================================== */
 "use strict";
-const APP_VERSION = "2026-06-15 · b11";
+const APP_VERSION = "2026-06-15 · b12";
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const todayKey = (d=new Date())=> d.toISOString().slice(0,10);
@@ -1418,37 +1418,46 @@ function profileAction(k){
   ({coach:openCoach,gps:openGPS,tools:openTools,ach:openAchievements,account:openAccount,calc:openCalc,profile:openProfileEdit,backup:openBackup,settings:openSettings,about:openAbout})[k]?.();
 }
 
-/* ---- Coach IA (Claude) ---- */
+/* ---- Coach IA (Claude / Gemini) ---- */
 let coachMsgs=[];
+const COACH_PROVIDERS={
+  google:{ name:"Google Gemini (grátis)", free:true, keyUrl:"https://aistudio.google.com/app/apikey", ph:"AIza...",
+    models:[["gemini-2.0-flash","Gemini 2.0 Flash (grátis, recomendado)"],["gemini-2.5-flash","Gemini 2.5 Flash"],["gemini-1.5-flash","Gemini 1.5 Flash"]] },
+  anthropic:{ name:"Anthropic (Claude · pago)", free:false, keyUrl:"https://console.anthropic.com/settings/keys", ph:"sk-ant-...",
+    models:[["claude-sonnet-4-6","Claude Sonnet 4.6 (recomendado)"],["claude-opus-4-8","Claude Opus 4.8 (mais capaz)"],["claude-haiku-4-5-20251001","Claude Haiku 4.5 (rápido)"]] },
+};
 async function openCoach(){
-  const cfg=await DB.kvGet("coach",{key:"",model:"claude-sonnet-4-6"});
-  if(!cfg.key){
-    openSheet(`<h2>🤖 Coach TF</h2><p class="muted" style="font-size:var(--text-sm);margin-bottom:14px">Cole sua chave da API <b>Anthropic (Claude)</b>. Ela fica salva <b>só no seu navegador</b> (IndexedDB) e é enviada apenas para a Anthropic.</p>
-      <a class="btn btn-block" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="margin-bottom:12px">🔑 Pegar minha chave →</a>
-      <details style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600;font-size:var(--text-sm)">Não sei como conseguir a chave</summary>
+  const cfg=await DB.kvGet("coach",null);
+  if(cfg&&cfg.key){ renderCoachChat(cfg); return; }
+  coachSetup((cfg&&cfg.provider)||"google");
+}
+function coachSetup(provider){
+  const P=COACH_PROVIDERS[provider]||COACH_PROVIDERS.google;
+  const tip = provider==="google"
+    ? `<p class="faint" style="font-size:var(--text-xs);margin-bottom:12px">No Google AI Studio: <b>Create API key</b>. É <b>grátis</b> e não precisa de cartão.</p>`
+    : `<details style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600;font-size:var(--text-sm)">Não sei como conseguir a chave</summary>
         <ol class="muted" style="font-size:var(--text-sm);margin:10px 0 0 18px;line-height:1.7">
-          <li>Crie/acesse a conta no <b>console.anthropic.com</b>.</li>
-          <li>Em <b>Billing</b>, adicione créditos (a partir de US$ 5) — assinatura do Claude.ai não serve.</li>
-          <li>Em <b>API Keys → Create Key</b>, copie a chave (<code>sk-ant-...</code>, aparece só uma vez).</li>
-          <li>Cole abaixo e ative. Custo por conversa é de centavos.</li>
-        </ol></details>
-      <div class="field"><label>API key (sk-ant-...)</label><input class="input" id="coach-key" type="password" placeholder="sk-ant-..."></div>
-      <div class="field"><label>Modelo</label><select class="input" id="coach-model">
-        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (recomendado)</option>
-        <option value="claude-opus-4-8">Claude Opus 4.8 (mais capaz)</option>
-        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (mais rápido)</option></select></div>
-      <button class="btn btn-primary btn-block" onclick="saveCoach()">Ativar Coach</button>`);
-    return;
-  }
-  renderCoachChat(cfg);
+          <li>Acesse <b>console.anthropic.com</b>.</li><li>Em <b>Billing</b>, adicione créditos (US$ 5+) — assinatura do Claude.ai não serve.</li>
+          <li>Em <b>API Keys → Create Key</b>, copie (<code>sk-ant-...</code>, aparece uma vez).</li></ol></details>`;
+  openSheet(`<h2>🤖 Coach TF</h2>
+    <p class="muted" style="font-size:var(--text-sm);margin-bottom:14px">Escolha o provedor de IA e cole sua chave. Ela fica <b>só no seu navegador</b> e nunca vai pra nuvem.</p>
+    <div class="field"><label>Provedor</label><select class="input" id="coach-provider" onchange="coachSetup(this.value)">
+      ${Object.entries(COACH_PROVIDERS).map(([k,v])=>`<option value="${k}" ${k===provider?'selected':''}>${v.name}</option>`).join("")}</select></div>
+    <a class="btn btn-block" href="${P.keyUrl}" target="_blank" rel="noopener" style="margin-bottom:12px">🔑 Pegar minha chave${P.free?' grátis':''} →</a>
+    ${tip}
+    <div class="field"><label>API key</label><input class="input" id="coach-key" type="password" placeholder="${P.ph}"></div>
+    <div class="field"><label>Modelo</label><select class="input" id="coach-model">${P.models.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select></div>
+    <button class="btn btn-primary btn-block" onclick="saveCoach()">Ativar Coach</button>`);
 }
 async function saveCoach(){
   const key=$("#coach-key").value.trim(); if(!key){toast("Cole a chave","err");return;}
-  await DB.kvSet("coach",{key,model:$("#coach-model").value}); toast("Coach ativado 🤖"); openCoach();
+  const provider=$("#coach-provider")?.value||"google";
+  await DB.kvSet("coach",{provider,key,model:$("#coach-model").value}); toast("Coach ativado 🤖"); openCoach();
 }
 function renderCoachChat(cfg){
   if(!coachMsgs.length) coachMsgs=[{role:"assistant",content:"Oi! Sou seu Coach TF 🤖 Posso analisar sua semana, sugerir treino ou ajustar a dieta. O que vamos ver hoje?"}];
-  openSheet(`<h2>🤖 Coach TF <span class="faint" style="font-size:var(--text-xs);font-weight:500">· ${cfg.model.replace('claude-','').replace(/-\d+$/,'')}</span></h2>
+  const prov=COACH_PROVIDERS[cfg.provider]||COACH_PROVIDERS.anthropic;
+  openSheet(`<h2 class="row between"><span>🤖 Coach TF</span><button class="chip" onclick="coachSetup('${cfg.provider||'anthropic'}')" title="Trocar IA / chave">${(cfg.model||'').replace('claude-','').replace('gemini-','')} ⚙</button></h2>
     <div class="chat" id="chat" style="max-height:46vh;overflow-y:auto;margin-bottom:12px"></div>
     <div class="row" style="gap:8px"><input class="input" id="coach-in" placeholder="Pergunte algo..." onkeydown="if(event.key==='Enter')coachSend()"><button class="btn btn-primary" onclick="coachSend()">➤</button></div>
     <div class="row wrap" style="gap:6px;margin-top:10px"><button class="chip" onclick="coachQuick('Como foi minha semana?')">📊 Semana</button><button class="chip" onclick="coachQuick('O que eu treino hoje?')">Treino hoje</button><button class="chip" onclick="coachQuick('Ajuste minha dieta de hoje')">Dieta</button></div>`);
@@ -1470,21 +1479,35 @@ Plano: ${S.plan.name} (${S.plan.days.map(d=>d.name).join(", ")}).
 Últimos treinos: ${sess.map(s=>`${s.date} ${s.dayName} vol ${s.volume}`).join(" | ")||"nenhum"}.
 Último corpo: ${body?`${body.weight}kg em ${body.date}`:"sem registro"}.`;
 }
+const COACH_SYS="Você é o Coach TF, um personal trainer e nutricionista que fala português do Brasil, direto e motivador. Use os dados fornecidos para dar respostas práticas e específicas. Seja conciso.";
 async function coachSend(){
   const inp=$("#coach-in"); const q=inp.value.trim(); if(!q)return;
   inp.value=""; coachMsgs.push({role:"user",content:q}); paintChat();
   const cfg=await DB.kvGet("coach"); const ctx=await buildCoachContext();
   const c=$("#chat"); const t=document.createElement("div"); t.className="msg ai"; t.innerHTML=`<span class="typing"><span></span><span></span><span></span></span>`; c.appendChild(t); c.scrollTop=c.scrollHeight;
+  const history=[...coachMsgs.slice(-8).map(m=>({role:m.role,content:m.content})), {role:"user",content:"Contexto:\n"+ctx}];
   try{
-    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":cfg.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify({model:cfg.model,max_tokens:700,system:"Você é o Coach TF, um personal trainer e nutricionista que fala português do Brasil, direto e motivador. Use os dados fornecidos para dar respostas práticas e específicas. Seja conciso.",
-        messages:[...coachMsgs.slice(-8).map(m=>({role:m.role,content:m.content})), {role:"user",content:"Contexto:\n"+ctx}]})});
-    const d=await r.json();
-    t.remove();
-    if(d.error){ coachMsgs.push({role:"assistant",content:"⚠️ "+(d.error.message||"Erro na API. Verifique sua chave/saldo.")}); }
-    else { coachMsgs.push({role:"assistant",content:d.content?.[0]?.text||"(sem resposta)"}); }
-  }catch(e){ t.remove(); coachMsgs.push({role:"assistant",content:"⚠️ Falha de conexão com a API da Anthropic."}); }
+    const answer = cfg.provider==="google" ? await callGemini(cfg,COACH_SYS,history) : await callClaude(cfg,COACH_SYS,history);
+    t.remove(); coachMsgs.push({role:"assistant",content:answer});
+  }catch(e){ t.remove(); coachMsgs.push({role:"assistant",content:"⚠️ "+(e.message||"Falha de conexão com a IA.")}); }
   paintChat();
+}
+async function callClaude(cfg,sys,history){
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":cfg.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:cfg.model,max_tokens:700,system:sys,messages:history})});
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message||"Erro na API da Anthropic. Verifique chave/saldo.");
+  return d.content?.[0]?.text||"(sem resposta)";
+}
+async function callGemini(cfg,sys,history){
+  let h=history.slice(); while(h.length && h[0].role==="assistant") h=h.slice(1); // Gemini exige começar com 'user'
+  const contents=h.map(m=>({role: m.role==="assistant"?"model":"user", parts:[{text:m.content}]}));
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:generateContent?key=${encodeURIComponent(cfg.key)}`,
+    {method:"POST",headers:{"content-type":"application/json"},
+     body:JSON.stringify({system_instruction:{parts:[{text:sys}]}, contents, generationConfig:{maxOutputTokens:700,temperature:0.7}})});
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message||"Erro na API do Gemini. Verifique a chave.");
+  return d.candidates?.[0]?.content?.parts?.map(p=>p.text).join("")||"(sem resposta)";
 }
 
 /* ---- GPS ---- */
@@ -1745,7 +1768,7 @@ function toast(msg,kind=""){ const t=document.createElement("div"); t.className=
 function download(name,content){ const b=new Blob([content],{type:"application/json"}); const u=URL.createObjectURL(b);
   const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
 /* expose for inline handlers */
-Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,addMeal,addFullDay,openShoppingList,shareShop,copyShop,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openQuickWeight,saveQuickWeight,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow,openGPS,openTools,openAchievements,openBackup,openSettings,openAbout,openCoach,openWelcome,closeWelcome,renderMais,onboardChoosePlan,onboardPickPlan,onboardGoals,onboardFinish});
+Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,addMeal,addFullDay,openShoppingList,shareShop,copyShop,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,coachSetup,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openQuickWeight,saveQuickWeight,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow,openGPS,openTools,openAchievements,openBackup,openSettings,openAbout,openCoach,openWelcome,closeWelcome,renderMais,onboardChoosePlan,onboardPickPlan,onboardGoals,onboardFinish});
 
 boot().catch(e=>{ document.body.innerHTML=`<div style="padding:40px;font-family:sans-serif">Erro ao iniciar: ${e.message}. Seu navegador suporta IndexedDB?</div>`; });
 </script>
