@@ -406,6 +406,7 @@ canvas { max-width:100%; }
    GPS. Coach IA (Claude).
    ==================================================================== */
 "use strict";
+const APP_VERSION = "2026-06-15 · b7";
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const todayKey = (d=new Date())=> d.toISOString().slice(0,10);
@@ -1550,7 +1551,7 @@ function openAbout(){
   openSheet(`<h2>ℹ️ Sobre</h2>
     <div class="card" style="background:var(--surface-2);text-align:center">
       <div class="avatar" style="width:64px;height:64px;margin:0 auto 12px;font-size:1.3rem">TF</div>
-      <h3>Tarta Fit — Web</h3><p class="muted">Versão 1.0.0 (web)</p></div>
+      <h3>Tarta Fit — Web</h3><p class="muted">Versão ${APP_VERSION}</p></div>
     <p class="muted" style="font-size:var(--text-sm);margin:16px 0">Versão web do app de treino & dieta. Seus dados ficam no <b>banco de dados local do navegador</b> (IndexedDB). Recursos nativos como Health Connect, GPS em segundo plano e push não estão disponíveis na web.</p>
     <a class="btn btn-block" href="./privacy.html" target="_blank">Política de privacidade</a>
     <p class="faint" style="font-size:var(--text-xs);text-align:center;margin-top:14px">tartarotti.rl@gmail.com</p>`);
@@ -1592,7 +1593,8 @@ function renderMais(){
     {em:"⚙️",t:"Configurações",s:"Tema, unidades, idioma e treino",fn:"openSettings"},
     {em:"ℹ️",t:"Sobre",s:"Versão e privacidade",fn:"openAbout"},
   ];
-  $("#maisHub").innerHTML=items.map(i=>`<button class="quick" onclick="${i.fn}()"><div class="ic" style="font-size:20px">${i.em}</div><h3>${i.t}</h3><p>${i.s}</p></button>`).join("");
+  $("#maisHub").innerHTML=items.map(i=>`<button class="quick" onclick="${i.fn}()"><div class="ic" style="font-size:20px">${i.em}</div><h3>${i.t}</h3><p>${i.s}</p></button>`).join("")
+    +`<p class="faint" style="grid-column:1/-1;text-align:center;font-size:var(--text-xs);margin-top:var(--sp-4)">Tarta Fit Web · v${APP_VERSION}</p>`;
 }
 function openWelcome(){
   const feats=[
