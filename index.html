@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a0a" />
+<meta name="description" content="Tarta Fit — treino, dieta, jejum, corpo, atividade por GPS e Coach de IA. Versão web." />
+<title>Tarta Fit — Treino & Dieta (Web)</title>
+
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,700,500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+<style>
+/* ============================ DESIGN TOKENS ============================ */
+:root, [data-theme="dark"] {
+  --brand: #a3e635; --brand-strong: #84cc16; --brand-2: #65a30d; --brand-ink: #15240a;
+  --bg: #0b0c09; --surface: #15170f; --surface-2: #1c1f15; --surface-3: #242818;
+  --text: #eef0e8; --text-muted: #9aa08c; --text-faint: #5f6552;
+  --border: oklch(from var(--text) l c h / 0.12);
+  --divider: oklch(from var(--text) l c h / 0.07);
+  --danger: #f87171; --warn: #fbbf24; --info: #60a5fa;
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-md: 0 6px 18px oklch(0 0 0 / 0.45);
+  --shadow-lg: 0 18px 44px oklch(0 0 0 / 0.55);
+}
+[data-theme="light"] {
+  --brand: #65a30d; --brand-2: #4d7c0f; --brand-ink: #f7fee7;
+  --bg: #f6f7f1; --surface: #fdfdfb; --surface-2: #f1f3ea; --surface-3: #e9ecdd;
+  --text: #1d2415; --text-muted: #5e6650; --text-faint: #9aa088;
+  --border: oklch(from var(--text) l c h / 0.14);
+  --divider: oklch(from var(--text) l c h / 0.08);
+  --danger: #dc2626; --warn: #d97706; --info: #2563eb;
+  --shadow-sm: 0 1px 2px oklch(0.3 0.02 110 / 0.08);
+  --shadow-md: 0 6px 18px oklch(0.3 0.02 110 / 0.1);
+  --shadow-lg: 0 18px 44px oklch(0.3 0.02 110 / 0.14);
+}
+:root {
+  --text-xs: clamp(0.75rem,0.7rem+0.25vw,0.85rem);
+  --text-sm: clamp(0.82rem,0.78rem+0.2vw,0.92rem);
+  --text-base: clamp(0.95rem,0.9rem+0.25vw,1.05rem);
+  --text-lg: clamp(1.1rem,1rem+0.5vw,1.35rem);
+  --text-xl: clamp(1.4rem,1.15rem+1vw,2rem);
+  --text-2xl: clamp(1.9rem,1.3rem+2.2vw,3rem);
+  --sp-1:.25rem; --sp-2:.5rem; --sp-3:.75rem; --sp-4:1rem; --sp-5:1.25rem;
+  --sp-6:1.5rem; --sp-8:2rem; --sp-10:2.5rem; --sp-12:3rem; --sp-16:4rem;
+  --r-sm:.5rem; --r-md:.75rem; --r-lg:1rem; --r-xl:1.5rem; --r-full:999px;
+  --ease: 180ms cubic-bezier(0.16,1,0.3,1);
+  --nav-h: 64px;
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background: var(--bg); color: var(--text);
+  font-size: var(--text-base); line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  transition: background var(--ease), color var(--ease);
+  overscroll-behavior-y: none;
+}
+h1,h2,h3,.display { font-family: "Cabinet Grotesk", "Inter", sans-serif; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+input,select,textarea { font: inherit; color: inherit; }
+a { color: var(--brand); }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
+::selection { background: var(--brand); color: var(--brand-ink); }
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ============================ LAYOUT ============================ */
+.app { max-width: 720px; margin-inline: auto; min-height: 100vh; position: relative; }
+.screen { display: none; padding: var(--sp-4) var(--sp-4) var(--sp-8); animation: fade .35s var(--ease); }
+.screen.active { display: block; }
+@keyframes fade { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+/* Top bar */
+.topbar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + var(--sp-3)) var(--sp-4) var(--sp-3);
+  background: color-mix(in oklab, var(--bg) 82%, transparent); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--divider); }
+.brand { display: flex; align-items: center; gap: var(--sp-2); font-weight: 800; }
+.brand svg { width: 30px; height: 30px; }
+.brand .name { font-family: "Cabinet Grotesk"; font-size: 1.15rem; letter-spacing: -0.03em; }
+.brand .name b { color: var(--brand); }
+.topbar-actions { display: flex; gap: var(--sp-2); align-items: center; }
+.icon-btn { width: 42px; height: 42px; display: grid; place-items: center; border-radius: var(--r-full);
+  background: var(--surface-2); border: 1px solid var(--border); transition: var(--ease); }
+.icon-btn:hover { background: var(--surface-3); transform: translateY(-1px); }
+.icon-btn:active { transform: scale(.95); }
+.icon-btn svg { width: 20px; height: 20px; }
+.avatar { width: 44px; height: 44px; border-radius: var(--r-full); display: grid; place-items: center;
+  font-family: "Cabinet Grotesk"; font-weight: 800; font-size: .95rem; color: var(--brand-ink);
+  background: linear-gradient(135deg, var(--brand), var(--brand-2)); box-shadow: var(--shadow-sm); transition: var(--ease); }
+.avatar:hover { transform: translateY(-1px) scale(1.03); }
+.avatar:active { transform: scale(.95); }
+
+/* Bottom nav */
+.bottomnav { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 12px);
+  width: min(420px, calc(100% - 24px)); height: var(--nav-h); z-index: 50;
+  display: grid; grid-template-columns: repeat(3,1fr);
+  background: color-mix(in oklab, var(--surface) 88%, transparent); backdrop-filter: blur(18px);
+  border: 1px solid var(--border); border-radius: var(--r-full); box-shadow: var(--shadow-lg); }
+.navtab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: var(--text-faint); font-size: var(--text-xs); font-weight: 600; border-radius: var(--r-full); transition: var(--ease); position: relative; }
+.navtab svg { width: 22px; height: 22px; transition: var(--ease); }
+.navtab[aria-current="page"] { color: var(--brand); }
+.navtab[aria-current="page"] svg { transform: translateY(-2px); }
+.navtab:active { transform: scale(.93); }
+
+/* Cards & components */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: var(--sp-5); box-shadow: var(--shadow-sm); transition: var(--ease); }
+.card + .card, .stack > * + * { margin-top: var(--sp-4); }
+.card-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.row { display: flex; align-items: center; gap: var(--sp-3); }
+.between { justify-content: space-between; }
+.wrap { flex-wrap: wrap; }
+.grow { flex: 1; }
+.muted { color: var(--text-muted); }
+.faint { color: var(--text-faint); }
+.eyebrow { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .12em; color: var(--brand); font-weight: 700; }
+.h-sec { font-size: var(--text-lg); margin-bottom: var(--sp-1); }
+.section-title { display:flex; align-items:center; justify-content:space-between; margin: var(--sp-6) 0 var(--sp-3); }
+.section-title h2 { font-size: var(--text-lg); }
+.divider { height:1px; background: var(--divider); margin: var(--sp-4) 0; border:0; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5); border-radius: var(--r-full); font-weight: 700; font-size: var(--text-sm);
+  background: var(--surface-2); border: 1px solid var(--border); transition: var(--ease); min-height: 44px; }
+.btn:hover { background: var(--surface-3); transform: translateY(-1px); }
+.btn:active { transform: scale(.97); }
+.btn svg { width: 18px; height: 18px; }
+.btn-primary { background: var(--brand); color: var(--brand-ink); border-color: transparent; box-shadow: 0 4px 14px oklch(from var(--brand) l c h / 0.3); }
+.btn-primary:hover { background: var(--brand-strong, var(--brand-2)); }
+.btn-danger { color: var(--danger); border-color: oklch(from var(--danger) l c h / 0.3); }
+.btn-block { display: flex; width: 100%; }
+.btn-sm { padding: var(--sp-2) var(--sp-3); min-height: 38px; font-size: var(--text-xs); }
+.chip { display:inline-flex; align-items:center; gap:6px; padding: 6px 12px; border-radius: var(--r-full);
+  background: var(--surface-2); border:1px solid var(--border); font-size: var(--text-xs); font-weight:600; transition:var(--ease); }
+.chip.active { background: var(--brand); color: var(--brand-ink); border-color: transparent; }
+.chip:active { transform: scale(.95); }
+
+.field { display: block; margin-bottom: var(--sp-3); }
+.field label { display:block; font-size: var(--text-xs); font-weight:600; color: var(--text-muted); margin-bottom: 6px; }
+.input, select.input, textarea.input { width: 100%; padding: var(--sp-3); border-radius: var(--r-md);
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text); min-height: 44px; transition: var(--ease); }
+.input:focus { border-color: var(--brand); background: var(--surface-3); outline: none; }
+textarea.input { min-height: 88px; resize: vertical; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+@media (max-width:380px){ .grid-2 { grid-template-columns: 1fr; } }
+
+/* progress ring & bars */
+.bar { height: 10px; border-radius: var(--r-full); background: var(--surface-3); overflow: hidden; }
+.bar > i { display:block; height:100%; background: linear-gradient(90deg,var(--brand),var(--brand-2)); border-radius: inherit; transition: width .6s var(--ease); }
+.ring { --p:0; width: 84px; height: 84px; border-radius: 50%; display:grid; place-items:center; flex:none;
+  background: conic-gradient(var(--brand) calc(var(--p)*1%), var(--surface-3) 0); }
+.ring > span { width: 66px; height: 66px; border-radius:50%; background: var(--surface); display:grid; place-items:center; font-weight:800; font-family:"Cabinet Grotesk"; }
+
+.stat-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(78px,1fr)); gap: var(--sp-3); }
+.stat { text-align:center; padding: var(--sp-3); border-radius: var(--r-md); background: var(--surface-2); border:1px solid var(--divider); }
+.stat .v { font-family:"Cabinet Grotesk"; font-weight:800; font-size: var(--text-lg); }
+.stat .v small { font-size: .6em; color: var(--text-muted); font-weight:600; }
+.stat .l { font-size: var(--text-xs); color: var(--text-muted); margin-top:2px; }
+
+.quick-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: var(--sp-3); }
+.quick { display:flex; flex-direction:column; gap: var(--sp-2); padding: var(--sp-4); border-radius: var(--r-lg);
+  background: var(--surface); border:1px solid var(--border); text-align:left; transition:var(--ease); }
+.quick:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: oklch(from var(--brand) l c h / 0.35); }
+.quick:active { transform: scale(.98); }
+.quick .ic { width:40px;height:40px;border-radius:var(--r-md); display:grid;place-items:center; background: var(--surface-3); color: var(--brand); }
+.quick .ic svg{width:22px;height:22px}
+.quick h3 { font-size: var(--text-sm); font-family:"Inter"; font-weight:700; letter-spacing:0; }
+.quick p { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* segmented */
+.seg { display:inline-flex; background: var(--surface-2); border:1px solid var(--border); border-radius: var(--r-full); padding:4px; gap:2px; }
+.seg button { padding: 8px 16px; border-radius: var(--r-full); font-size: var(--text-sm); font-weight:600; color: var(--text-muted); transition:var(--ease); min-height: 38px; }
+.seg button.active { background: var(--brand); color: var(--brand-ink); }
+.subtabs { display:flex; gap:var(--sp-2); overflow-x:auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+.subtabs::-webkit-scrollbar{display:none}
+
+/* exercise / list rows */
+.ex { padding: var(--sp-4); border-radius: var(--r-md); background: var(--surface-2); border:1px solid var(--divider); }
+.ex + .ex { margin-top: var(--sp-3); }
+.sets { display:flex; gap:6px; flex-wrap:wrap; margin-top: var(--sp-3); }
+.setbtn { width:44px;height:44px; border-radius: var(--r-md); background: var(--surface-3); border:1px solid var(--border);
+  font-weight:700; font-size:var(--text-xs); transition:var(--ease); }
+.setbtn.done { background: var(--brand); color: var(--brand-ink); border-color:transparent; }
+.setbtn:active{transform:scale(.9)}
+.tag { font-size: var(--text-xs); padding: 3px 9px; border-radius: var(--r-full); background: oklch(from var(--brand) l c h / 0.15); color: var(--brand); font-weight:700; }
+
+.listrow { display:flex; align-items:center; gap:var(--sp-3); padding: var(--sp-3) 0; border-bottom:1px solid var(--divider); }
+.listrow:last-child{border-bottom:0}
+.del { color: var(--text-faint); width:36px;height:36px;border-radius:var(--r-full);display:grid;place-items:center;transition:var(--ease) }
+.del:hover{color:var(--danger);background:oklch(from var(--danger) l c h / 0.12)}
+
+/* empty state */
+.empty { text-align:center; padding: var(--sp-8) var(--sp-4); color: var(--text-muted); }
+.empty svg { width:46px;height:46px; color: var(--text-faint); margin-bottom: var(--sp-3); animation: float 4s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+
+/* modal / sheet */
+.scrim { position: fixed; inset:0; background: oklch(0 0 0 / 0.55); backdrop-filter: blur(3px); z-index: 80; opacity:0; pointer-events:none; transition: opacity var(--ease); }
+.scrim.open { opacity:1; pointer-events:auto; }
+.sheet { position: fixed; left:50%; bottom:0; transform: translate(-50%, 100%); width: min(640px, 100%); max-height: 92vh; overflow-y:auto; z-index: 81;
+  background: var(--surface); border-radius: var(--r-xl) var(--r-xl) 0 0; border:1px solid var(--border); border-bottom:0;
+  padding: var(--sp-5) var(--sp-5) calc(var(--sp-8) + env(safe-area-inset-bottom)); transition: transform .32s cubic-bezier(0.16,1,0.3,1); box-shadow: var(--shadow-lg); }
+.sheet.open { transform: translate(-50%, 0); }
+.sheet .grip { width:40px;height:4px;border-radius:var(--r-full); background: var(--text-faint); margin: 0 auto var(--sp-4); opacity:.5; }
+.sheet h2 { font-size: var(--text-lg); margin-bottom: var(--sp-4); }
+@media (min-width:560px){ .sheet { bottom: 50%; transform: translate(-50%, calc(50% + 40px)); border-radius: var(--r-xl); border-bottom:1px solid var(--border); }
+  .sheet.open { transform: translate(-50%, 50%); } }
+
+/* toast */
+.toasts { position: fixed; left:50%; transform:translateX(-50%); bottom: calc(var(--nav-h) + 24px); z-index: 100; display:flex; flex-direction:column; gap:8px; width: min(420px, calc(100% - 24px)); }
+.toast { background: var(--surface-3); border:1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+  box-shadow: var(--shadow-lg); font-size: var(--text-sm); font-weight:600; display:flex; gap:var(--sp-2); align-items:center;
+  animation: toastin .3s var(--ease); }
+.toast.ok { border-left: 3px solid var(--brand); }
+.toast.err { border-left: 3px solid var(--danger); }
+@keyframes toastin { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+
+/* hero today */
+.hero { padding: var(--sp-2) var(--sp-1) var(--sp-4); }
+.hero .greet { font-size: var(--text-2xl); }
+.hero .phrase { color: var(--text-muted); margin-top: var(--sp-2); max-width: 34ch; }
+.streak-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:var(--r-full);
+  background: oklch(from var(--warn) l c h / 0.14); color: var(--warn); font-weight:700; font-size: var(--text-sm); }
+
+/* week strip */
+.week { display:grid; grid-template-columns: repeat(7,1fr); gap:6px; }
+.day { text-align:center; padding: var(--sp-3) 2px; border-radius: var(--r-md); background: var(--surface-2); border:1px solid var(--divider); font-size: var(--text-xs); }
+.day.on { background: oklch(from var(--brand) l c h / 0.16); border-color: oklch(from var(--brand) l c h / 0.4); }
+.day.today { outline:2px solid var(--brand); }
+.day .dot { width:7px;height:7px;border-radius:50%; background: var(--text-faint); margin: 6px auto 0; }
+.day.on .dot { background: var(--brand); }
+
+/* map */
+#map, #miniMap { width:100%; height: 300px; border-radius: var(--r-lg); border:1px solid var(--border); z-index:1; background: var(--surface-2); }
+.leaflet-tile { filter: var(--map-filter, none); }
+[data-theme="dark"] { --map-filter: invert(1) hue-rotate(180deg) brightness(.95) contrast(.9); }
+
+/* coach chat */
+.chat { display:flex; flex-direction:column; gap: var(--sp-3); }
+.msg { max-width: 86%; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-lg); font-size: var(--text-sm); white-space: pre-wrap; line-height:1.5; }
+.msg.user { align-self:flex-end; background: var(--brand); color: var(--brand-ink); border-bottom-right-radius: 4px; }
+.msg.ai { align-self:flex-start; background: var(--surface-2); border:1px solid var(--border); border-bottom-left-radius:4px; }
+.msg.ai.think { color: var(--text-muted); font-style: italic; }
+.typing span { display:inline-block; width:6px;height:6px;border-radius:50%; background: var(--text-muted); margin:0 1px; animation: blink 1.2s infinite; }
+.typing span:nth-child(2){animation-delay:.2s} .typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink { 0%,60%,100%{opacity:.3} 30%{opacity:1} }
+
+.skeleton { background: linear-gradient(90deg,var(--surface-2),var(--surface-3),var(--surface-2)); background-size:200% 100%; animation: shine 1.3s infinite; border-radius: var(--r-md); }
+@keyframes shine { to { background-position:-200% 0; } }
+
+.badge-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(96px,1fr)); gap: var(--sp-3); }
+.badge { text-align:center; padding: var(--sp-4) var(--sp-2); border-radius: var(--r-md); background: var(--surface-2); border:1px solid var(--divider); opacity:.45; filter: grayscale(1); transition: var(--ease); }
+.badge.un { opacity:1; filter:none; border-color: oklch(from var(--brand) l c h / 0.4); }
+.badge .em { font-size: 28px; }
+.badge .nm { font-size: var(--text-xs); font-weight:700; margin-top:6px; }
+.badge .ds { font-size: 10px; color: var(--text-muted); }
+
+canvas { max-width:100%; }
+.list-menu button { display:flex; align-items:center; gap:var(--sp-3); width:100%; text-align:left; padding: var(--sp-3); border-radius: var(--r-md); transition:var(--ease); font-weight:600; font-size: var(--text-sm); }
+.list-menu button:hover { background: var(--surface-2); }
+.list-menu .ic { width:38px;height:38px;border-radius:var(--r-md); background: var(--surface-2); display:grid;place-items:center; color: var(--brand); flex:none; }
+.list-menu button:hover .ic { background: var(--surface-3); }
+.list-menu .ic svg{width:20px;height:20px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#g)"/>
+        <path d="M9 11h14M16 11v12M11 20l5-3 5 3" stroke="#15240a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="g" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#a3e635"/><stop offset="1" stop-color="#65a30d"/></linearGradient></defs>
+      </svg>
+      <span class="name">Tarta<b>Fit</b></span>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="themeBtn" aria-label="Alternar tema">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <button class="avatar" id="profileBtn" aria-label="Abrir perfil">TF</button>
+    </div>
+  </header>
+
+  <!-- ===================== HOJE ===================== -->
+  <main id="scr-hoje" class="screen active">
+    <section class="hero">
+      <div class="row between" style="align-items:flex-start">
+        <div>
+          <h1 class="greet" id="greet">Olá</h1>
+          <p class="phrase" id="phrase"></p>
+        </div>
+        <span class="streak-pill" id="streakPill" title="Sequência">🔥 <span id="streakDays">0</span></span>
+      </div>
+    </section>
+
+    <!-- Missão de hoje -->
+    <div class="card" id="missionCard">
+      <div class="row between"><span class="eyebrow">Missão de hoje</span><span class="muted" id="missionPct">0%</span></div>
+      <div class="bar" style="margin:12px 0"><i id="missionBar" style="width:0%"></i></div>
+      <div id="missionList" class="stack" style="font-size:var(--text-sm)"></div>
+    </div>
+
+    <!-- quick access -->
+    <div class="quick-grid" style="margin-top:var(--sp-4)">
+      <button class="quick" data-quick="coach">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M9 13v2M15 13v2"/></svg></div>
+        <h3>Coach de IA</h3><p>Pergunte sobre seu treino</p>
+      </button>
+      <button class="quick" data-quick="gps">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 5.5 8 12 8 12s8-6.5 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <h3>Atividade GPS</h3><p>Corra, caminhe, pedale</p>
+      </button>
+      <button class="quick" data-quick="weight">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 6.5h11l1.5 13H5zM9 6.5a3 3 0 0 1 6 0"/></svg></div>
+        <h3>Meta de peso</h3><p id="weightGoalSub">—</p>
+      </button>
+    </div>
+
+    <!-- treino de hoje -->
+    <div class="section-title"><h2>Treino de hoje</h2><button class="chip" id="editTrainBtn">Cadastrar ▸</button></div>
+    <div class="card" id="todayWorkout"></div>
+
+    <!-- dieta sub -->
+    <div class="section-title"><h2>Dieta</h2></div>
+    <div class="card stack" id="dietPanel"></div>
+
+    <!-- semana -->
+    <div class="section-title"><h2>Sua semana</h2></div>
+    <div class="card"><div class="week" id="weekStrip"></div></div>
+  </main>
+
+  <!-- ===================== CADASTRAR ===================== -->
+  <main id="scr-cadastrar" class="screen">
+    <h1 style="font-size:var(--text-xl);margin:var(--sp-2) 0 var(--sp-4)">Cadastrar</h1>
+    <div class="subtabs" id="cadTabs">
+      <button class="chip active" data-cad="treino">Treino</button>
+      <button class="chip" data-cad="dieta">Dieta</button>
+      <button class="chip" data-cad="corpo">Corpo</button>
+    </div>
+    <div id="cad-treino" class="cadpane" style="margin-top:var(--sp-4)"></div>
+    <div id="cad-dieta" class="cadpane" hidden style="margin-top:var(--sp-4)"></div>
+    <div id="cad-corpo" class="cadpane" hidden style="margin-top:var(--sp-4)"></div>
+  </main>
+
+  <!-- ===================== EVOLUÇÃO ===================== -->
+  <main id="scr-evolucao" class="screen">
+    <h1 style="font-size:var(--text-xl);margin:var(--sp-2) 0 var(--sp-4)">Evolução</h1>
+    <div class="subtabs" id="evoTabs">
+      <button class="chip active" data-evo="treinos">Treinos</button>
+      <button class="chip" data-evo="graficos">Gráficos</button>
+      <button class="chip" data-evo="cargas">Cargas</button>
+      <button class="chip" data-evo="corpo">Corpo</button>
+      <button class="chip" data-evo="atividade">Atividade</button>
+    </div>
+    <div id="evoPane" style="margin-top:var(--sp-4)"></div>
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottomnav" aria-label="Navegação principal">
+    <button class="navtab" data-screen="hoje" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>Hoje
+    </button>
+    <button class="navtab" data-screen="cadastrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Cadastrar
+    </button>
+    <button class="navtab" data-screen="evolucao">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg>Evolução
+    </button>
+  </nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grip"></div><div id="sheetBody"></div></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+/* ====================================================================
+   TARTA FIT — Web. Single-file. IndexedDB. GPS. Coach IA (Claude).
+   ==================================================================== */
+"use strict";
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const todayKey = (d=new Date())=> d.toISOString().slice(0,10);
+const fmt = (n,d=0)=> (Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:d,minimumFractionDigits:d});
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const uid = ()=> Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+/* ---------------------- IndexedDB (banco de dados) ---------------------- */
+const DB = (()=>{
+  let db=null;
+  const NAME="tartafit", VER=1;
+  const STORES=["kv","sessions","foods","body","activities","fasting","exercises"];
+  function open(){
+    return new Promise((res,rej)=>{
+      const r=indexedDB.open(NAME,VER);
+      r.onupgradeneeded=e=>{
+        const d=e.target.result;
+        STORES.forEach(s=>{ if(!d.objectStoreNames.contains(s)) d.createObjectStore(s,{keyPath: s==="kv"?"k":"id"}); });
+      };
+      r.onsuccess=e=>{db=e.target.result;res(db);};
+      r.onerror=e=>rej(e.target.error);
+    });
+  }
+  const tx=(store,mode="readonly")=>db.transaction(store,mode).objectStore(store);
+  const req=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
+  return {
+    open,
+    async kvGet(k,def=null){ const v=await req(tx("kv").get(k)); return v? v.v : def; },
+    async kvSet(k,v){ return req(tx("kv","readwrite").put({k,v})); },
+    async all(store){ return req(tx(store).getAll()); },
+    async put(store,obj){ if(!obj.id) obj.id=uid(); await req(tx(store,"readwrite").put(obj)); return obj; },
+    async del(store,id){ return req(tx(store,"readwrite").delete(id)); },
+    async clearAll(){ for(const s of STORES) await req(tx(s,"readwrite").clear()); }
+  };
+})();
+
+/* ---------------------- App State ---------------------- */
+const DEFAULT_GOALS = { kcal:2200, protein:150, carb:240, fat:70, water:2500 };
+const DEFAULT_PROFILE = { name:"Atleta", sex:"M", birth:1995, height:175, weight:78, activity:1.55, goal:"manter" };
+const DEFAULT_PLAN = {
+  name:"Plano A — Full Body",
+  days:[
+    { name:"Treino A", exercises:[
+      {id:"e1",name:"Agachamento",muscle:"Pernas",sets:4,reps:10,load:60},
+      {id:"e2",name:"Supino reto",muscle:"Peito",sets:4,reps:10,load:40},
+      {id:"e3",name:"Remada curvada",muscle:"Costas",sets:3,reps:12,load:35},
+      {id:"e4",name:"Desenvolvimento",muscle:"Ombro",sets:3,reps:12,load:20},
+    ]},
+    { name:"Treino B", exercises:[
+      {id:"e5",name:"Levantamento terra",muscle:"Posterior",sets:4,reps:8,load:70},
+      {id:"e6",name:"Puxada alta",muscle:"Costas",sets:4,reps:10,load:45},
+      {id:"e7",name:"Leg press",muscle:"Pernas",sets:4,reps:12,load:120},
+      {id:"e8",name:"Rosca direta",muscle:"Bíceps",sets:3,reps:12,load:14},
+    ]},
+  ]
+};
+const PHRASES=["Constância vence intensidade.","Um treino de cada vez.","Você contra você de ontem.","O suor de hoje é a força de amanhã.","Pequenos hábitos, grandes resultados.","Apareça. O resto a gente ajusta."];
+const FASTS={ "16:8":16,"18:6":18,"20:4":20,"OMAD":23,"Livre":0 };
+
+let S = {
+  goals:{...DEFAULT_GOALS}, profile:{...DEFAULT_PROFILE}, plan:structuredClone(DEFAULT_PLAN),
+  prefs:{ theme:"dark", unit:"kg", lang:"pt", weightGoal:75, restTimer:true, restSec:90 },
+  liveWorkout:null, // {dayIdx, startedAt, sets:{exId:[bool]}, logs:{exId:[{load,reps,rpe}]}}
+  fastingActive:null, // {start, protocol}
+};
+
+/* ---------------------- Boot ---------------------- */
+async function boot(){
+  await DB.open();
+  S.goals   = await DB.kvGet("goals", {...DEFAULT_GOALS});
+  S.profile = await DB.kvGet("profile", {...DEFAULT_PROFILE});
+  S.plan    = await DB.kvGet("plan", structuredClone(DEFAULT_PLAN));
+  S.prefs   = {...S.prefs, ...(await DB.kvGet("prefs", {}))};
+  S.fastingActive = await DB.kvGet("fastingActive", null);
+  // seed plan if first run
+  if(!(await DB.kvGet("plan"))) await DB.kvSet("plan", S.plan);
+  applyTheme(S.prefs.theme);
+  bindGlobal();
+  renderAll();
+  tickClock();
+  setInterval(tickClock, 1000);
+}
+function tickClock(){ // live fasting + workout timers
+  if(S.fastingActive){ const el=$("#fastTimer"); if(el) el.textContent=hms((Date.now()-S.fastingActive.start)/1000); }
+  if(S.liveWorkout){ const el=$("#workTimer"); if(el) el.textContent=hms((Date.now()-S.liveWorkout.startedAt)/1000); }
+}
+const hms=s=>{s=Math.max(0,Math.floor(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+":":"")+String(m).padStart(h?2:1,"0")+":"+String(x).padStart(2,"0");};
+
+/* ---------------------- Render orchestrator ---------------------- */
+function renderAll(){ renderHoje(); renderCadastrar(); }
+
+/* ============================ HOJE ============================ */
+async function renderHoje(){
+  const p=S.profile;
+  const hour=new Date().getHours();
+  $("#greet").textContent = (hour<12?"Bom dia":hour<18?"Boa tarde":"Boa noite")+", "+p.name.split(" ")[0]+" 👋";
+  $("#phrase").textContent = PHRASES[new Date().getDate()%PHRASES.length];
+  $("#profileBtn").textContent = (p.name[0]||"T")+(p.name.split(" ")[1]?.[0]||"F");
+
+  const streak = await computeStreak();
+  $("#streakDays").textContent = streak;
+  $("#weightGoalSub").textContent = `${fmt(p.weight,1)} → ${fmt(S.prefs.weightGoal,1)} ${S.prefs.unit}`;
+
+  await renderMission();
+  renderTodayWorkout();
+  await renderDietPanel();
+  await renderWeek();
+}
+
+async function computeStreak(){
+  const sessions=await DB.all("sessions");
+  const acts=await DB.all("activities");
+  const days=new Set([...sessions,...acts].map(x=>x.date));
+  let n=0, d=new Date();
+  while(days.has(todayKey(d))){ n++; d.setDate(d.getDate()-1); }
+  // allow streak to count even if today not done yet (look from yesterday)
+  if(n===0){ d=new Date(); d.setDate(d.getDate()-1); while(days.has(todayKey(d))){n++;d.setDate(d.getDate()-1);} }
+  return n;
+}
+
+async function renderMission(){
+  const tk=todayKey();
+  const foods=(await DB.all("foods")).filter(f=>f.date===tk);
+  const water=await DB.kvGet("water_"+tk,0);
+  const sessions=(await DB.all("sessions")).filter(s=>s.date===tk);
+  const steps=await DB.kvGet("steps_"+tk,0);
+  const tasks=[
+    {label:"Registrar treino", done: sessions.length>0 || (S.liveWorkout!=null)},
+    {label:`Beber água (${fmt(water)}/${fmt(S.goals.water)} ml)`, done: water>=S.goals.water},
+    {label:"Registrar 1 refeição", done: foods.length>0},
+    {label:"Registrar peso/corpo hoje", done: (await DB.all("body")).some(b=>b.date===tk)},
+  ];
+  const done=tasks.filter(t=>t.done).length, pct=Math.round(done/tasks.length*100);
+  $("#missionPct").textContent=pct+"%";
+  $("#missionBar").style.width=pct+"%";
+  $("#missionList").innerHTML=tasks.map(t=>`<div class="row" style="gap:10px"><span style="width:20px">${t.done?'✅':'⬜'}</span><span class="${t.done?'faint':''}" style="${t.done?'text-decoration:line-through':''}">${t.label}</span></div>`).join("");
+}
+
+function renderTodayWorkout(){
+  const el=$("#todayWorkout");
+  const dayIdx = S.liveWorkout ? S.liveWorkout.dayIdx : (new Date().getDate()% S.plan.days.length);
+  const day=S.plan.days[dayIdx];
+  if(!day){ el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9h12M6 15h12M4 6v12M20 6v12"/></svg><p>Nenhum treino no plano. Cadastre em <b>Cadastrar → Treino</b>.</p></div>`; return; }
+  const live=S.liveWorkout;
+  let html=`<div class="row between"><div><span class="eyebrow">${live?'Em andamento':'Sugerido'}</span><h3 style="font-size:var(--text-lg)">${day.name}</h3></div>`;
+  html+= live? `<div style="text-align:right"><div class="display" id="workTimer" style="font-size:var(--text-lg);color:var(--brand)">0:00</div><span class="faint" style="font-size:var(--text-xs)">tempo</span></div>`:"";
+  html+=`</div>`;
+  html+=`<div style="margin-top:var(--sp-4)">`;
+  day.exercises.forEach(ex=>{
+    const logs = live?.logs?.[ex.id]||[];
+    const doneSets = live?.sets?.[ex.id]||Array(ex.sets).fill(false);
+    const sugg = progressionHint(ex, logs);
+    html+=`<div class="ex"><div class="row between">
+      <div><b>${ex.name}</b><div class="faint" style="font-size:var(--text-xs)">${ex.muscle} · ${ex.sets}×${ex.reps} · ${fmt(ex.load,1)}${S.prefs.unit}</div></div>
+      ${sugg?`<span class="tag">${sugg}</span>`:""}
+    </div>`;
+    if(live){
+      html+=`<div class="sets">`;
+      for(let i=0;i<ex.sets;i++) html+=`<button class="setbtn ${doneSets[i]?'done':''}" onclick="toggleSet('${ex.id}',${i})">S${i+1}</button>`;
+      html+=`<button class="setbtn" title="Registrar séries" onclick="openSetLog('${ex.id}')">✎</button></div>`;
+    }
+    html+=`</div>`;
+  });
+  html+=`</div><div class="row" style="margin-top:var(--sp-5);gap:var(--sp-3)">`;
+  if(!live){
+    html+=`<button class="btn btn-primary grow" onclick="startWorkout(${dayIdx})">▶ Iniciar treino</button>
+           <button class="btn" onclick="openGuided(${dayIdx})">🎯 Guiado</button>`;
+  } else {
+    html+=`<button class="btn btn-primary grow" onclick="finishWorkout()">■ Finalizar treino</button>
+           <button class="btn" onclick="openGuided(${live.dayIdx})">🎯 Guiado</button>
+           <button class="btn btn-danger" onclick="cancelWorkout()">Cancelar</button>`;
+  }
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+
+function progressionHint(ex, logs){
+  if(!logs.length) return "";
+  const last=logs[logs.length-1];
+  if(!last||last.reps==null) return "";
+  if(last.reps>=ex.reps && (last.rpe==null||last.rpe<=8)) return `Subir p/ ${fmt(ex.load+2.5,1)}${S.prefs.unit}`;
+  if(last.reps<ex.reps-2) return `Mire ${ex.reps} reps`;
+  return "Mantenha";
+}
+
+/* live workout actions */
+async function startWorkout(dayIdx){
+  S.liveWorkout={dayIdx, startedAt:Date.now(), sets:{}, logs:{}};
+  S.plan.days[dayIdx].exercises.forEach(ex=>{S.liveWorkout.sets[ex.id]=Array(ex.sets).fill(false);S.liveWorkout.logs[ex.id]=[];});
+  renderTodayWorkout(); toast("Treino iniciado 💪");
+}
+function toggleSet(exId,i){
+  const arr=S.liveWorkout.sets[exId]; arr[i]=!arr[i];
+  renderTodayWorkout();
+  if(arr[i] && S.prefs.restTimer) startRest(S.prefs.restSec);
+}
+function cancelWorkout(){ S.liveWorkout=null; renderTodayWorkout(); toast("Treino cancelado"); }
+async function finishWorkout(){
+  const lw=S.liveWorkout; const day=S.plan.days[lw.dayIdx];
+  let volume=0; const exData=[];
+  day.exercises.forEach(ex=>{
+    const logs=lw.logs[ex.id]||[]; const doneCount=(lw.sets[ex.id]||[]).filter(Boolean).length;
+    const sets=[];
+    for(let i=0;i<ex.sets;i++){
+      const l=logs[i]; const load=l?.load??ex.load; const reps=l?.reps??(lw.sets[ex.id]?.[i]?ex.reps:0);
+      if(reps>0){ sets.push({load,reps,rpe:l?.rpe??null}); volume+=load*reps; }
+    }
+    if(sets.length) exData.push({name:ex.name,exId:ex.id,sets});
+  });
+  const session={date:todayKey(),dayName:day.name,exercises:exData,volume:Math.round(volume),durationSec:Math.round((Date.now()-lw.startedAt)/1000)};
+  // PR detection
+  const prev=await DB.all("sessions");
+  let prs=[];
+  exData.forEach(ed=>{ const best=Math.max(...ed.sets.map(s=>s.load));
+    const prevBest=Math.max(0,...prev.flatMap(s=>s.exercises).filter(e=>e.exId===ed.exId).flatMap(e=>e.sets.map(x=>x.load)));
+    if(best>prevBest && prevBest>0) prs.push(ed.name);
+  });
+  await DB.put("sessions",session);
+  S.liveWorkout=null;
+  await checkAchievements();
+  renderHoje();
+  toast(`Treino salvo! Volume ${fmt(session.volume)} ${S.prefs.unit}`+(prs.length?` · 🏆 PR em ${prs.join(", ")}`:""),"ok");
+}
+function openSetLog(exId){
+  const lw=S.liveWorkout; const ex=S.plan.days[lw.dayIdx].exercises.find(e=>e.id===exId);
+  let rows="";
+  for(let i=0;i<ex.sets;i++){ const l=lw.logs[exId][i]||{};
+    rows+=`<div class="grid-2" style="grid-template-columns:auto 1fr 1fr 1fr;align-items:center;gap:8px;margin-bottom:8px">
+      <b style="width:34px">S${i+1}</b>
+      <input class="input" type="number" inputmode="decimal" placeholder="kg" value="${l.load??''}" data-sl="${i}-load">
+      <input class="input" type="number" inputmode="numeric" placeholder="reps" value="${l.reps??''}" data-sl="${i}-reps">
+      <input class="input" type="number" inputmode="numeric" placeholder="RPE" min="1" max="10" value="${l.rpe??''}" data-sl="${i}-rpe">
+    </div>`;
+  }
+  openSheet(`<h2>Registrar séries — ${ex.name}</h2>
+    <div class="faint" style="font-size:var(--text-xs);margin-bottom:12px">RPE = esforço percebido (1–10). 10 = falha total.</div>
+    ${rows}
+    <button class="btn btn-primary btn-block" onclick="saveSetLog('${exId}')">Salvar séries</button>`);
+}
+function saveSetLog(exId){
+  const lw=S.liveWorkout; const ex=S.plan.days[lw.dayIdx].exercises.find(e=>e.id===exId);
+  for(let i=0;i<ex.sets;i++){
+    const load=parseFloat($(`[data-sl="${i}-load"]`).value); const reps=parseInt($(`[data-sl="${i}-reps"]`).value); const rpe=parseInt($(`[data-sl="${i}-rpe"]`).value);
+    lw.logs[exId][i]={load:isNaN(load)?null:load,reps:isNaN(reps)?null:reps,rpe:isNaN(rpe)?null:rpe};
+    if(!isNaN(reps)&&reps>0) lw.sets[exId][i]=true;
+  }
+  closeSheet(); renderTodayWorkout(); toast("Séries registradas");
+}
+
+/* rest timer */
+let restInt=null;
+function startRest(sec){
+  clearInterval(restInt); let left=sec;
+  const box=document.createElement("div"); box.className="toast ok"; box.id="restToast";
+  $("#toasts").appendChild(box);
+  const upd=()=>{ box.innerHTML=`⏱ Descanso: <b>${left}s</b> &nbsp; <button class="btn-sm" style="border:1px solid var(--border);padding:2px 8px;border-radius:99px" onclick="this.closest('.toast').remove();window.__skipRest&&window.__skipRest()">pular</button>`; };
+  window.__skipRest=()=>{clearInterval(restInt);};
+  upd(); restInt=setInterval(()=>{left--;upd(); if(left<=0){clearInterval(restInt);box.remove();toast("Descanso concluído! Próxima série 🔔");}},1000);
+}
+
+/* guided mode (simplificado) */
+function openGuided(dayIdx){
+  if(!S.liveWorkout) startWorkout(dayIdx);
+  const day=S.plan.days[dayIdx];
+  let queue=[]; day.exercises.forEach(ex=>{ for(let i=0;i<ex.sets;i++) queue.push({ex,setN:i+1}); });
+  let idx=0;
+  const step=()=>{
+    if(idx>=queue.length){ closeSheet(); finishWorkout(); return; }
+    const {ex,setN}=queue[idx];
+    openSheet(`<h2>🎯 Modo guiado</h2>
+      <div class="card" style="text-align:center;background:var(--surface-2)">
+        <div class="eyebrow">${idx+1} de ${queue.length}</div>
+        <h3 style="font-size:var(--text-xl);margin:8px 0">${ex.name}</h3>
+        <p class="muted">Série ${setN} · alvo ${ex.reps} reps · ${fmt(ex.load,1)}${S.prefs.unit}</p>
+        <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr;margin-top:16px">
+          <div class="field"><label>Carga</label><input class="input" id="g-load" type="number" value="${ex.load}"></div>
+          <div class="field"><label>Reps</label><input class="input" id="g-reps" type="number" value="${ex.reps}"></div>
+          <div class="field"><label>RPE</label><input class="input" id="g-rpe" type="number" min="1" max="10"></div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="g-next">Concluir série & descansar ▸</button>`);
+    $("#g-next").onclick=()=>{
+      const exId=ex.id; const li=setN-1;
+      S.liveWorkout.logs[exId][li]={load:parseFloat($("#g-load").value)||ex.load,reps:parseInt($("#g-reps").value)||0,rpe:parseInt($("#g-rpe").value)||null};
+      S.liveWorkout.sets[exId][li]=true; renderTodayWorkout();
+      idx++; if(idx<queue.length && S.prefs.restTimer) startRest(S.prefs.restSec); step();
+    };
+  };
+  step();
+}
+
+/* ---------------- DIET PANEL (Hoje) ---------------- */
+async function renderDietPanel(){
+  const tk=todayKey();
+  const foods=(await DB.all("foods")).filter(f=>f.date===tk);
+  const tot=foods.reduce((a,f)=>({kcal:a.kcal+f.kcal,protein:a.protein+f.protein,carb:a.carb+f.carb,fat:a.fat+f.fat}),{kcal:0,protein:0,carb:0,fat:0});
+  const water=await DB.kvGet("water_"+tk,0);
+  const g=S.goals;
+  const macro=(lbl,v,goal,unit="g")=>`<div class="stat"><div class="v">${fmt(v)}<small>/${fmt(goal)}${unit}</small></div><div class="bar" style="margin-top:6px"><i style="width:${clamp(v/goal*100,0,100)}%"></i></div><div class="l">${lbl}</div></div>`;
+
+  // fasting
+  let fastHtml;
+  if(S.fastingActive){
+    const target=FASTS[S.fastingActive.protocol]||0;
+    fastHtml=`<div class="row between"><div><span class="eyebrow">⏱ Jejum · ${S.fastingActive.protocol}</span>
+      <div class="display" id="fastTimer" style="font-size:var(--text-xl);color:var(--brand)">0:00</div>
+      ${target?`<span class="faint" style="font-size:var(--text-xs)">meta ${target}h</span>`:""}</div>
+      <button class="btn btn-danger" onclick="stopFast()">Encerrar</button></div>`;
+  } else {
+    fastHtml=`<div class="row between wrap"><span class="eyebrow">⏱ Jejum intermitente</span>
+      <div class="row wrap" style="gap:6px">${Object.keys(FASTS).map(p=>`<button class="chip" onclick="startFast('${p}')">${p}</button>`).join("")}</div></div>`;
+  }
+
+  $("#dietPanel").innerHTML=`
+    <div>${fastHtml}</div><hr class="divider">
+    <div class="row between"><span class="eyebrow">Macros de hoje</span><button class="chip" onclick="openGoals()">⚙ Metas</button></div>
+    <div class="stat-grid" style="margin-top:12px">
+      <div class="stat"><div class="v">${fmt(tot.kcal)}<small>/${fmt(g.kcal)}</small></div><div class="bar" style="margin-top:6px"><i style="width:${clamp(tot.kcal/g.kcal*100,0,100)}%"></i></div><div class="l">kcal</div></div>
+      ${macro("Proteína",tot.protein,g.protein)}${macro("Carbo",tot.carb,g.carb)}${macro("Gordura",tot.fat,g.fat)}
+    </div>
+    <hr class="divider">
+    <div class="row between"><span class="eyebrow">💧 Água</span><b>${fmt(water)} / ${fmt(g.water)} ml</b></div>
+    <div class="bar" style="margin:10px 0"><i style="width:${clamp(water/g.water*100,0,100)}%"></i></div>
+    <div class="row" style="gap:8px"><button class="btn btn-sm grow" onclick="addWater(250)">+250 ml</button><button class="btn btn-sm grow" onclick="addWater(500)">+500 ml</button><button class="btn btn-sm" onclick="addWater(-99999)">↺</button></div>
+    <hr class="divider">
+    <div class="row between"><span class="eyebrow">Alimentos de hoje</span><button class="chip active" onclick="openAddFood()">+ Adicionar</button></div>
+    <div id="foodList" style="margin-top:10px">${foods.length?foods.map(f=>`
+      <div class="listrow"><div class="grow"><b>${f.name}</b><div class="faint" style="font-size:var(--text-xs)">${fmt(f.qty)}g · ${fmt(f.kcal)}kcal · P${fmt(f.protein)} C${fmt(f.carb)} G${fmt(f.fat)}</div></div>
+      <button class="del" onclick="delFood('${f.id}')" aria-label="Remover">✕</button></div>`).join(""):`<p class="faint" style="font-size:var(--text-sm);padding:8px 0">Nenhum alimento ainda. Toque em <b>+ Adicionar</b>.</p>`}</div>`;
+}
+async function addWater(ml){
+  const tk=todayKey(); let w=await DB.kvGet("water_"+tk,0);
+  w = ml===-99999?0:Math.max(0,w+ml);
+  await DB.kvSet("water_"+tk,w); renderDietPanel(); renderMission();
+}
+async function delFood(id){ await DB.del("foods",id); renderDietPanel(); renderMission(); }
+function openAddFood(){
+  openSheet(`<h2>Adicionar alimento</h2>
+    <div class="subtabs" style="margin-bottom:14px">
+      <button class="chip active" data-foodtab="busca">🔎 Buscar</button>
+      <button class="chip" data-foodtab="manual">Manual</button>
+      <button class="chip" data-foodtab="rapida">⚡ Rápida</button>
+    </div>
+    <div id="ft-busca">
+      <div class="field"><label>Nome (base Open Food Facts · precisa de internet)</label>
+        <input class="input" id="off-q" placeholder="ex: iogurte natural"></div>
+      <button class="btn btn-block" onclick="searchOFF()">Buscar</button>
+      <div id="off-res" style="margin-top:12px"></div>
+    </div>
+    <div id="ft-manual" hidden>
+      <div class="field"><label>Nome</label><input class="input" id="m-name"></div>
+      <div class="grid-2"><div class="field"><label>Quantidade (g)</label><input class="input" id="m-qty" type="number" value="100"></div>
+      <div class="field"><label>kcal</label><input class="input" id="m-kcal" type="number"></div></div>
+      <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="field"><label>Prot (g)</label><input class="input" id="m-p" type="number"></div>
+        <div class="field"><label>Carb (g)</label><input class="input" id="m-c" type="number"></div>
+        <div class="field"><label>Gord (g)</label><input class="input" id="m-f" type="number"></div></div>
+      <button class="btn btn-primary btn-block" onclick="addManualFood()">Adicionar</button>
+    </div>
+    <div id="ft-rapida" hidden>
+      <div class="field"><label>Descrição</label><input class="input" id="q-name" value="Refeição"></div>
+      <div class="field"><label>Calorias (kcal)</label><input class="input" id="q-kcal" type="number" inputmode="numeric"></div>
+      <button class="btn btn-primary btn-block" onclick="addQuickFood()">Registrar calorias</button>
+    </div>`);
+  $$("[data-foodtab]").forEach(b=>b.onclick=()=>{
+    $$("[data-foodtab]").forEach(x=>x.classList.toggle("active",x===b));
+    ["busca","manual","rapida"].forEach(t=>$("#ft-"+t).hidden=(t!==b.dataset.foodtab));
+  });
+}
+async function searchOFF(){
+  const q=$("#off-q").value.trim(); if(!q) return;
+  const box=$("#off-res"); box.innerHTML=`<div class="skeleton" style="height:48px;margin-bottom:8px"></div><div class="skeleton" style="height:48px"></div>`;
+  try{
+    const r=await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=8&fields=product_name,nutriments,brands`);
+    const d=await r.json();
+    const items=(d.products||[]).filter(p=>p.product_name && p.nutriments?.["energy-kcal_100g"]);
+    if(!items.length){ box.innerHTML=`<p class="faint">Nada encontrado. Tente outro termo ou use Manual.</p>`; return; }
+    box.innerHTML=items.map((p,i)=>{ const n=p.nutriments;
+      window["__off"+i]={name:p.product_name,kcal:n["energy-kcal_100g"]||0,protein:n.proteins_100g||0,carb:n.carbohydrates_100g||0,fat:n.fat_100g||0};
+      return `<div class="listrow"><div class="grow"><b>${p.product_name}</b><div class="faint" style="font-size:var(--text-xs)">${p.brands||""} · ${fmt(n["energy-kcal_100g"])}kcal/100g</div></div>
+      <button class="btn btn-sm btn-primary" onclick="pickOFF(${i})">+ Add</button></div>`;
+    }).join("");
+  }catch(e){ box.innerHTML=`<p class="faint">Sem internet ou serviço indisponível. Use a aba Manual.</p>`; }
+}
+function pickOFF(i){
+  const base=window["__off"+i]; window.__pickFood=base;
+  openSheet(`<h2>${escapeHtml(base.name)}</h2><div class="field"><label>Quantidade (g)</label><input class="input" id="off-qty" type="number" value="100"></div>
+    <p class="faint" style="font-size:var(--text-xs);margin-bottom:12px">Por 100g: ${fmt(base.kcal)}kcal · P${fmt(base.protein)} C${fmt(base.carb)} G${fmt(base.fat)}</p>
+    <button class="btn btn-primary btn-block" onclick="confirmOFF()">Adicionar ao diário</button>`);
+}
+async function confirmOFF(){
+  const base=window.__pickFood; if(!base)return;
+  const qty=parseFloat($("#off-qty").value)||100; const k=qty/100;
+  await DB.put("foods",{date:todayKey(),name:base.name,qty,kcal:Math.round(base.kcal*k),protein:+(base.protein*k).toFixed(1),carb:+(base.carb*k).toFixed(1),fat:+(base.fat*k).toFixed(1)});
+  closeSheet(); renderDietPanel(); renderMission(); toast("Alimento adicionado");
+}
+async function addManualFood(){
+  const name=$("#m-name").value.trim()||"Alimento";
+  await DB.put("foods",{date:todayKey(),name,qty:parseFloat($("#m-qty").value)||0,kcal:parseFloat($("#m-kcal").value)||0,protein:parseFloat($("#m-p").value)||0,carb:parseFloat($("#m-c").value)||0,fat:parseFloat($("#m-f").value)||0});
+  closeSheet(); renderDietPanel(); renderMission(); toast("Alimento adicionado");
+}
+async function addQuickFood(){
+  await DB.put("foods",{date:todayKey(),name:$("#q-name").value||"Refeição",qty:0,kcal:parseFloat($("#q-kcal").value)||0,protein:0,carb:0,fat:0});
+  closeSheet(); renderDietPanel(); renderMission(); toast("Calorias registradas");
+}
+
+/* fasting */
+async function startFast(p){ S.fastingActive={start:Date.now(),protocol:p}; await DB.kvSet("fastingActive",S.fastingActive); renderDietPanel(); toast(`Jejum ${p} iniciado`); }
+async function stopFast(){
+  const dur=Math.round((Date.now()-S.fastingActive.start)/1000);
+  await DB.put("fasting",{date:todayKey(),protocol:S.fastingActive.protocol,start:S.fastingActive.start,end:Date.now(),durationSec:dur});
+  S.fastingActive=null; await DB.kvSet("fastingActive",null); renderDietPanel(); toast(`Jejum encerrado: ${hms(dur)}`,"ok");
+}
+
+/* goals */
+function openGoals(){
+  const g=S.goals;
+  openSheet(`<h2>Metas diárias</h2>
+    <div class="grid-2"><div class="field"><label>Calorias</label><input class="input" id="gl-kcal" type="number" value="${g.kcal}"></div>
+    <div class="field"><label>Água (ml)</label><input class="input" id="gl-water" type="number" value="${g.water}"></div></div>
+    <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="field"><label>Prot (g)</label><input class="input" id="gl-p" type="number" value="${g.protein}"></div>
+    <div class="field"><label>Carb (g)</label><input class="input" id="gl-c" type="number" value="${g.carb}"></div>
+    <div class="field"><label>Gord (g)</label><input class="input" id="gl-f" type="number" value="${g.fat}"></div></div>
+    <button class="btn btn-block" onclick="suggestWater()">Sugerir água pelo peso (35 ml/kg)</button>
+    <button class="btn btn-primary btn-block" style="margin-top:10px" onclick="saveGoals()">Salvar metas</button>`);
+}
+function suggestWater(){ $("#gl-water").value=Math.round(S.profile.weight*35); }
+async function saveGoals(){
+  S.goals={kcal:+$("#gl-kcal").value||0,water:+$("#gl-water").value||0,protein:+$("#gl-p").value||0,carb:+$("#gl-c").value||0,fat:+$("#gl-f").value||0};
+  await DB.kvSet("goals",S.goals); closeSheet(); renderDietPanel(); toast("Metas salvas");
+}
+
+/* week strip */
+async function renderWeek(){
+  const sessions=await DB.all("sessions"), acts=await DB.all("activities");
+  const done=new Set([...sessions,...acts].map(x=>x.date));
+  const names=["D","S","T","Q","Q","S","S"]; const out=[];
+  const now=new Date(); const monday=new Date(now); monday.setDate(now.getDate()-((now.getDay()+6)%7));
+  for(let i=0;i<7;i++){ const d=new Date(monday); d.setDate(monday.getDate()+i); const k=todayKey(d); const on=done.has(k); const isToday=k===todayKey();
+    out.push(`<div class="day ${on?'on':''} ${isToday?'today':''}"><div>${["S","T","Q","Q","S","S","D"][i]}</div><div style="font-weight:700">${d.getDate()}</div><div class="dot"></div></div>`);
+  }
+  $("#weekStrip").innerHTML=out.join("");
+}
+
+/* ============================ CADASTRAR ============================ */
+function renderCadastrar(){ renderCadTreino(); renderCadDieta(); renderCadCorpo(); }
+function renderCadTreino(){
+  const el=$("#cad-treino");
+  let html=`<div class="card"><div class="row between"><div><span class="eyebrow">Plano ativo</span><h3 style="font-size:var(--text-lg)">${S.plan.name}</h3></div>
+    <button class="chip" onclick="genWorkout()">🧠 Gerar</button></div></div>`;
+  S.plan.days.forEach((day,di)=>{
+    html+=`<div class="card" style="margin-top:var(--sp-4)"><div class="row between"><input class="input" style="font-weight:700;max-width:60%" value="${day.name}" onchange="renameDay(${di},this.value)">
+      <button class="btn btn-sm" onclick="addExercise(${di})">+ Exercício</button></div><div style="margin-top:12px">`;
+    day.exercises.forEach((ex,ei)=>{
+      html+=`<div class="ex"><div class="row between"><b>${ex.name}</b><button class="del" onclick="delExercise(${di},${ei})">✕</button></div>
+      <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr 1.4fr;margin-top:8px">
+        <input class="input" type="number" value="${ex.sets}" onchange="editEx(${di},${ei},'sets',this.value)" aria-label="séries">
+        <input class="input" type="number" value="${ex.reps}" onchange="editEx(${di},${ei},'reps',this.value)" aria-label="reps">
+        <input class="input" type="number" value="${ex.load}" onchange="editEx(${di},${ei},'load',this.value)" aria-label="carga">
+        <input class="input" value="${ex.muscle}" onchange="editEx(${di},${ei},'muscle',this.value)" aria-label="músculo"></div>
+      <div class="faint" style="font-size:10px;margin-top:4px">séries · reps · ${S.prefs.unit} · músculo</div></div>`;
+    });
+    html+=`</div></div>`;
+  });
+  html+=`<button class="btn btn-block" style="margin-top:var(--sp-4)" onclick="addDay()">+ Adicionar dia de treino</button>
+    <div class="row" style="margin-top:12px;gap:10px"><button class="btn btn-sm grow" onclick="exportPlan()">⬆ Exportar plano</button><button class="btn btn-sm grow" onclick="importPlan()">⬇ Importar plano</button></div>`;
+  el.innerHTML=html;
+}
+async function savePlan(){ await DB.kvSet("plan",S.plan); }
+function renameDay(di,v){ S.plan.days[di].name=v; savePlan(); }
+function editEx(di,ei,k,v){ S.plan.days[di].exercises[ei][k]= k==='muscle'?v:(parseFloat(v)||0); savePlan(); renderHoje(); }
+function delExercise(di,ei){ S.plan.days[di].exercises.splice(ei,1); savePlan(); renderCadTreino(); renderHoje(); }
+function addExercise(di){
+  openSheet(`<h2>Novo exercício</h2>
+    <div class="field"><label>Nome</label><input class="input" id="nx-name" placeholder="ex: Crucifixo"></div>
+    <div class="field"><label>Músculo</label><input class="input" id="nx-musc" placeholder="ex: Peito"></div>
+    <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="field"><label>Séries</label><input class="input" id="nx-sets" type="number" value="3"></div>
+    <div class="field"><label>Reps</label><input class="input" id="nx-reps" type="number" value="12"></div>
+    <div class="field"><label>Carga</label><input class="input" id="nx-load" type="number" value="10"></div></div>
+    <button class="btn btn-primary btn-block" onclick="confirmAddEx(${di})">Adicionar</button>`);
+}
+function confirmAddEx(di){
+  S.plan.days[di].exercises.push({id:uid(),name:$("#nx-name").value||"Exercício",muscle:$("#nx-musc").value||"Geral",sets:+$("#nx-sets").value||3,reps:+$("#nx-reps").value||12,load:+$("#nx-load").value||0});
+  savePlan(); closeSheet(); renderCadTreino(); renderHoje(); toast("Exercício adicionado");
+}
+function addDay(){ S.plan.days.push({name:"Treino "+String.fromCharCode(65+S.plan.days.length),exercises:[]}); savePlan(); renderCadTreino(); }
+function genWorkout(){
+  openSheet(`<h2>🧠 Gerar treino</h2>
+    <div class="field"><label>Objetivo</label><select class="input" id="gw-goal"><option value="hiper">Hipertrofia</option><option value="forca">Força</option><option value="emag">Emagrecimento</option></select></div>
+    <div class="field"><label>Local</label><select class="input" id="gw-loc"><option>Academia</option><option>Casa</option><option>Livre</option></select></div>
+    <div class="field"><label>Dias por semana</label><select class="input" id="gw-days"><option>2</option><option>3</option><option selected>4</option><option>5</option></select></div>
+    <button class="btn btn-primary btn-block" onclick="doGenWorkout()">Gerar plano</button>`);
+}
+function doGenWorkout(){
+  const days=+$("#gw-days").value, goal=$("#gw-goal").value;
+  const reps=goal==="forca"?6:goal==="emag"?15:10;
+  const pool={ "Treino Empurrar":[["Supino reto","Peito"],["Desenvolvimento","Ombro"],["Tríceps corda","Tríceps"],["Crucifixo","Peito"]],
+    "Treino Puxar":[["Puxada alta","Costas"],["Remada curvada","Costas"],["Rosca direta","Bíceps"],["Face pull","Ombro"]],
+    "Treino Pernas":[["Agachamento","Pernas"],["Leg press","Pernas"],["Cadeira flexora","Posterior"],["Panturrilha","Panturrilha"]],
+    "Treino Full Body":[["Agachamento","Pernas"],["Supino reto","Peito"],["Remada curvada","Costas"],["Desenvolvimento","Ombro"]] };
+  const order=days<=3?["Treino Full Body","Treino Empurrar","Treino Puxar"]:["Treino Empurrar","Treino Puxar","Treino Pernas","Treino Full Body","Treino Empurrar"];
+  S.plan={name:`Plano gerado — ${goal}`, days: order.slice(0,days).map(n=>({name:n,exercises:pool[n].map(([nm,m])=>({id:uid(),name:nm,muscle:m,sets:goal==="forca"?5:4,reps,load:20}))}))};
+  savePlan(); closeSheet(); renderCadTreino(); renderHoje(); toast("Plano gerado! Ajuste as cargas.");
+}
+function exportPlan(){ download("tartafit-plano.json", JSON.stringify(S.plan,null,2)); }
+function importPlan(){
+  const inp=document.createElement("input"); inp.type="file"; inp.accept=".json";
+  inp.onchange=async()=>{ try{ const t=await inp.files[0].text(); const p=JSON.parse(t); if(p.days){S.plan=p;await savePlan();renderCadTreino();renderHoje();toast("Plano importado");}}catch(e){toast("Arquivo inválido","err");} };
+  inp.click();
+}
+
+function renderCadDieta(){
+  $("#cad-dieta").innerHTML=`<div class="card"><span class="eyebrow">Atalhos de dieta</span>
+    <p class="muted" style="margin:8px 0 16px;font-size:var(--text-sm)">O registro de alimentos e a meta diária ficam na aba <b>Hoje → Dieta</b>.</p>
+    <button class="btn btn-block" onclick="goScreen('hoje');setTimeout(openAddFood,300)">+ Adicionar alimento</button>
+    <button class="btn btn-block" style="margin-top:10px" onclick="openGoals()">⚙ Editar metas diárias</button>
+    <button class="btn btn-block" style="margin-top:10px" onclick="openCalc()">🧮 Calculadora de metas</button></div>`;
+}
+function openCalc(){
+  const p=S.profile;
+  openSheet(`<h2>🧮 Calculadora de metas</h2>
+    <div class="grid-2"><div class="field"><label>Sexo</label><select class="input" id="c-sex"><option value="M" ${p.sex==='M'?'selected':''}>Masculino</option><option value="F" ${p.sex==='F'?'selected':''}>Feminino</option></select></div>
+    <div class="field"><label>Idade</label><input class="input" id="c-age" type="number" value="${new Date().getFullYear()-p.birth}"></div></div>
+    <div class="grid-2"><div class="field"><label>Altura (cm)</label><input class="input" id="c-h" type="number" value="${p.height}"></div>
+    <div class="field"><label>Peso (kg)</label><input class="input" id="c-w" type="number" value="${p.weight}"></div></div>
+    <div class="field"><label>Atividade</label><select class="input" id="c-act"><option value="1.2">Sedentário</option><option value="1.375">Leve</option><option value="1.55" selected>Moderado</option><option value="1.725">Intenso</option></select></div>
+    <div class="field"><label>Objetivo</label><select class="input" id="c-goal"><option value="0">Manter peso</option><option value="-500">Emagrecer</option><option value="350">Ganhar massa</option></select></div>
+    <button class="btn btn-primary btn-block" onclick="calcGoals()">Calcular & aplicar</button>`);
+}
+async function calcGoals(){
+  const sex=$("#c-sex").value, age=+$("#c-age").value, h=+$("#c-h").value, w=+$("#c-w").value, act=+$("#c-act").value, adj=+$("#c-goal").value;
+  const bmr= sex==="M"? 10*w+6.25*h-5*age+5 : 10*w+6.25*h-5*age-161;
+  const kcal=Math.round(bmr*act+adj);
+  S.goals={kcal,protein:Math.round(w*2),fat:Math.round(w*0.9),carb:Math.round((kcal-(w*2*4)-(w*0.9*9))/4),water:Math.round(w*35)};
+  S.profile={...S.profile,sex,height:h,weight:w,birth:new Date().getFullYear()-age,activity:act};
+  await DB.kvSet("goals",S.goals); await DB.kvSet("profile",S.profile);
+  closeSheet(); renderHoje(); toast(`Meta: ${kcal} kcal · P${S.goals.protein} C${S.goals.carb} G${S.goals.fat}`,"ok");
+}
+
+async function renderCadCorpo(){
+  const recs=(await DB.all("body")).sort((a,b)=>b.date.localeCompare(a.date));
+  const last=recs[0];
+  $("#cad-corpo").innerHTML=`<div class="card"><span class="eyebrow">Registrar corpo</span>
+    <div class="grid-2" style="margin-top:12px"><div class="field"><label>Peso (kg)</label><input class="input" id="b-w" type="number" value="${last?.weight||S.profile.weight}"></div>
+    <div class="field"><label>% Gordura</label><input class="input" id="b-bf" type="number" placeholder="opcional"></div></div>
+    <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr"><div class="field"><label>Cintura (cm)</label><input class="input" id="b-waist" type="number"></div>
+    <div class="field"><label>Quadril (cm)</label><input class="input" id="b-hip" type="number"></div>
+    <div class="field"><label>Pescoço (cm)</label><input class="input" id="b-neck" type="number"></div></div>
+    <div class="field"><label>Notas</label><input class="input" id="b-notes" placeholder="opcional"></div>
+    <button class="btn btn-primary btn-block" onclick="saveBody()">Salvar registro</button></div>
+    ${last?`<div class="card" style="margin-top:var(--sp-4)"><span class="eyebrow">Indicadores</span>
+      <div class="stat-grid" style="margin-top:12px">
+      <div class="stat"><div class="v">${fmt(bmi(last.weight),1)}</div><div class="l">IMC</div></div>
+      <div class="stat"><div class="v">${last.bodyfat?fmt(last.bodyfat,1)+'%':navyBF(last)?fmt(navyBF(last),1)+'%':'—'}</div><div class="l">% Gordura</div></div>
+      <div class="stat"><div class="v">${fmt(last.weight,1)}</div><div class="l">Peso</div></div></div></div>`:""}`;
+}
+const bmi=w=> w/Math.pow(S.profile.height/100,2);
+function navyBF(r){ if(!r.waist||!r.neck) return null; const h=S.profile.height;
+  if(S.profile.sex==="M") return 495/(1.0324-0.19077*Math.log10(r.waist-r.neck)+0.15456*Math.log10(h))-450;
+  if(!r.hip) return null; return 495/(1.29579-0.35004*Math.log10(r.waist+r.hip-r.neck)+0.22100*Math.log10(h))-450;
+}
+async function saveBody(){
+  const w=parseFloat($("#b-w").value); if(!w){toast("Informe o peso","err");return;}
+  await DB.put("body",{date:todayKey(),weight:w,bodyfat:parseFloat($("#b-bf").value)||null,waist:parseFloat($("#b-waist").value)||null,hip:parseFloat($("#b-hip").value)||null,neck:parseFloat($("#b-neck").value)||null,notes:$("#b-notes").value||""});
+  S.profile.weight=w; await DB.kvSet("profile",S.profile);
+  renderCadCorpo(); renderHoje(); await checkAchievements(); toast("Corpo registrado");
+}
+
+/* ============================ EVOLUÇÃO ============================ */
+let chartRefs=[];
+async function renderEvo(tab){
+  chartRefs.forEach(c=>c.destroy&&c.destroy()); chartRefs=[];
+  const pane=$("#evoPane");
+  if(tab==="treinos"){
+    const s=(await DB.all("sessions")).sort((a,b)=>b.date.localeCompare(a.date));
+    pane.innerHTML = s.length? s.map(x=>`<div class="card card-hover" style="margin-bottom:12px"><div class="row between"><b>${x.dayName}</b><span class="tag">${fmt(x.volume)} ${S.prefs.unit}</span></div>
+      <div class="faint" style="font-size:var(--text-xs);margin:4px 0 8px">${x.date} · ${hms(x.durationSec)} · ${x.exercises.length} exercícios</div>
+      ${x.exercises.map(e=>`<div style="font-size:var(--text-sm)">• ${e.name}: ${e.sets.map(st=>`${fmt(st.load,1)}×${st.reps}`).join(", ")}</div>`).join("")}</div>`).join("")
+      : emptyState("Nenhum treino registrado ainda.");
+  }
+  else if(tab==="graficos"){
+    pane.innerHTML=`<div class="card"><span class="eyebrow">Peso corporal</span><canvas id="ch-weight" height="170"></canvas></div>
+      <div class="card" style="margin-top:var(--sp-4)"><span class="eyebrow">Volume por treino</span><canvas id="ch-vol" height="170"></canvas></div>`;
+    const body=(await DB.all("body")).sort((a,b)=>a.date.localeCompare(b.date));
+    const sess=(await DB.all("sessions")).sort((a,b)=>a.date.localeCompare(b.date));
+    drawLine("ch-weight", body.map(b=>b.date), body.map(b=>b.weight), "Peso");
+    drawBar("ch-vol", sess.map(s=>s.date), sess.map(s=>s.volume), "Volume");
+  }
+  else if(tab==="cargas"){
+    const sess=await DB.all("sessions");
+    const byEx={}; sess.forEach(s=>s.exercises.forEach(e=>{ (byEx[e.name]=byEx[e.name]||[]).push({date:s.date,load:Math.max(...e.sets.map(x=>x.load))}); }));
+    const names=Object.keys(byEx);
+    if(!names.length){ pane.innerHTML=emptyState("Faça treinos com cargas para ver a evolução."); return; }
+    pane.innerHTML=names.map((n,i)=>`<div class="card" style="margin-bottom:12px"><span class="eyebrow">${n}</span><canvas id="ch-load-${i}" height="120"></canvas></div>`).join("");
+    names.forEach((n,i)=>{ const arr=byEx[n].sort((a,b)=>a.date.localeCompare(b.date)); drawLine(`ch-load-${i}`,arr.map(x=>x.date),arr.map(x=>x.load),n); });
+  }
+  else if(tab==="corpo"){
+    const recs=(await DB.all("body")).sort((a,b)=>b.date.localeCompare(a.date));
+    pane.innerHTML= recs.length? recs.map(r=>`<div class="card" style="margin-bottom:12px"><div class="row between"><b>${r.date}</b><span class="tag">${fmt(r.weight,1)} kg</span></div>
+      <div class="faint" style="font-size:var(--text-xs);margin-top:4px">IMC ${fmt(bmi(r.weight),1)}${r.bodyfat?` · ${fmt(r.bodyfat,1)}% gord`:""}${r.waist?` · cintura ${fmt(r.waist)}cm`:""}${r.notes?` · ${r.notes}`:""}</div></div>`).join("")
+      : emptyState("Nenhum registro de corpo. Cadastre em Cadastrar → Corpo.");
+  }
+  else if(tab==="atividade"){
+    const acts=(await DB.all("activities")).sort((a,b)=>b.date.localeCompare(a.date));
+    pane.innerHTML= acts.length? acts.map(a=>`<div class="card card-hover" style="margin-bottom:12px"><div class="row between"><b>${a.type}</b><span class="tag">${fmt(a.distanceM/1000,2)} km</span></div>
+      <div class="faint" style="font-size:var(--text-xs);margin-top:4px">${a.date} · ${hms(a.durationSec)} · ritmo ${pace(a)}/km</div></div>`).join("")
+      : emptyState("Nenhuma atividade GPS ainda. Inicie pelo card 🛰️ no Hoje.");
+  }
+}
+const pace=a=> a.distanceM>0? hms(a.durationSec/(a.distanceM/1000)) : "—";
+function emptyState(msg){ return `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg><p>${msg}</p></div>`; }
+function chartColors(){ const cs=getComputedStyle(document.documentElement); return {brand:cs.getPropertyValue("--brand").trim(),grid:cs.getPropertyValue("--divider").trim(),text:cs.getPropertyValue("--text-muted").trim()}; }
+function drawLine(id,labels,data,label){ const c=chartColors(); const el=$("#"+id); if(!el)return;
+  chartRefs.push(new Chart(el,{type:"line",data:{labels,datasets:[{label,data,borderColor:c.brand,backgroundColor:c.brand+"22",fill:true,tension:.3,pointRadius:3}]},options:chartOpts(c)})); }
+function drawBar(id,labels,data,label){ const c=chartColors(); const el=$("#"+id); if(!el)return;
+  chartRefs.push(new Chart(el,{type:"bar",data:{labels,datasets:[{label,data,backgroundColor:c.brand+"cc",borderRadius:6}]},options:chartOpts(c)})); }
+function chartOpts(c){ return {responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:c.text,maxRotation:0,autoSkip:true,maxTicksLimit:6},grid:{display:false}},y:{ticks:{color:c.text},grid:{color:c.grid}}}}; }
+
+/* ============================ PERFIL ============================ */
+function openProfile(){
+  const p=S.profile;
+  openSheet(`<h2 style="display:flex;align-items:center;gap:12px"><span class="avatar" style="width:48px;height:48px">${$("#profileBtn").textContent}</span> ${p.name}</h2>
+    <div class="list-menu stack">
+      ${menuItem("coach","🤖","Coach TF (IA)","Personal + nutri por IA")}
+      ${menuItem("gps","🛰️","Atividade (GPS)","Corrida, caminhada, pedalada")}
+      ${menuItem("tools","🛠","Ferramentas","1RM, anilhas, aquecimento")}
+      ${menuItem("ach","🏆","Conquistas","Suas medalhas")}
+      ${menuItem("calc","🧮","Calculadora de metas","Recalcular kcal/macros")}
+      ${menuItem("profile","👤","Perfil & objetivo","Seus dados")}
+      ${menuItem("backup","⬇","Backup","Exportar / importar dados")}
+      ${menuItem("settings","⚙️","Configurações","Tema, unidades, idioma, treino")}
+      ${menuItem("about","ℹ️","Sobre","Versão e privacidade")}
+    </div>`);
+  $$("[data-menu]").forEach(b=>b.onclick=()=>profileAction(b.dataset.menu));
+}
+function menuItem(key,em,title,sub){ return `<button data-menu="${key}"><span class="ic" style="font-size:18px">${em}</span><span class="grow"><div>${title}</div><div class="faint" style="font-size:var(--text-xs);font-weight:500">${sub}</div></span><span class="faint">▸</span></button>`; }
+function profileAction(k){
+  ({coach:openCoach,gps:openGPS,tools:openTools,ach:openAchievements,calc:openCalc,profile:openProfileEdit,backup:openBackup,settings:openSettings,about:openAbout})[k]?.();
+}
+
+/* ---- Coach IA (Claude) ---- */
+let coachMsgs=[];
+async function openCoach(){
+  const cfg=await DB.kvGet("coach",{key:"",model:"claude-sonnet-4-6"});
+  if(!cfg.key){
+    openSheet(`<h2>🤖 Coach TF</h2><p class="muted" style="font-size:var(--text-sm);margin-bottom:14px">Cole sua chave da API <b>Anthropic (Claude)</b>. Ela fica salva <b>só no seu navegador</b> (IndexedDB) e é enviada apenas para a Anthropic.</p>
+      <div class="field"><label>API key (sk-ant-...)</label><input class="input" id="coach-key" type="password" placeholder="sk-ant-..."></div>
+      <div class="field"><label>Modelo</label><select class="input" id="coach-model">
+        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (recomendado)</option>
+        <option value="claude-opus-4-8">Claude Opus 4.8 (mais capaz)</option>
+        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (mais rápido)</option></select></div>
+      <button class="btn btn-primary btn-block" onclick="saveCoach()">Ativar Coach</button>
+      <p class="faint" style="font-size:var(--text-xs);margin-top:10px">Pegue sua chave em console.anthropic.com</p>`);
+    return;
+  }
+  renderCoachChat(cfg);
+}
+async function saveCoach(){
+  const key=$("#coach-key").value.trim(); if(!key){toast("Cole a chave","err");return;}
+  await DB.kvSet("coach",{key,model:$("#coach-model").value}); toast("Coach ativado 🤖"); openCoach();
+}
+function renderCoachChat(cfg){
+  if(!coachMsgs.length) coachMsgs=[{role:"assistant",content:"Oi! Sou seu Coach TF 🤖 Posso analisar sua semana, sugerir treino ou ajustar a dieta. O que vamos ver hoje?"}];
+  openSheet(`<h2>🤖 Coach TF <span class="faint" style="font-size:var(--text-xs);font-weight:500">· ${cfg.model.replace('claude-','').replace(/-\d+$/,'')}</span></h2>
+    <div class="chat" id="chat" style="max-height:46vh;overflow-y:auto;margin-bottom:12px"></div>
+    <div class="row" style="gap:8px"><input class="input" id="coach-in" placeholder="Pergunte algo..." onkeydown="if(event.key==='Enter')coachSend()"><button class="btn btn-primary" onclick="coachSend()">➤</button></div>
+    <div class="row wrap" style="gap:6px;margin-top:10px"><button class="chip" onclick="coachQuick('Como foi minha semana?')">📊 Semana</button><button class="chip" onclick="coachQuick('O que eu treino hoje?')">Treino hoje</button><button class="chip" onclick="coachQuick('Ajuste minha dieta de hoje')">Dieta</button></div>`);
+  paintChat();
+}
+function paintChat(){ const c=$("#chat"); if(!c)return; c.innerHTML=coachMsgs.map(m=>`<div class="msg ${m.role==='user'?'user':'ai'}">${escapeHtml(m.content)}</div>`).join(""); c.scrollTop=c.scrollHeight; }
+function coachQuick(q){ $("#coach-in").value=q; coachSend(); }
+const escapeHtml=s=>s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+async function buildCoachContext(){
+  const tk=todayKey(); const sess=(await DB.all("sessions")).slice(-5);
+  const foods=(await DB.all("foods")).filter(f=>f.date===tk); const body=(await DB.all("body")).slice(-1)[0];
+  const water=await DB.kvGet("water_"+tk,0); const streak=await computeStreak();
+  const totK=foods.reduce((a,f)=>a+f.kcal,0);
+  return `Dados do usuário (resumo):
+Perfil: ${S.profile.sex}, ${new Date().getFullYear()-S.profile.birth} anos, ${S.profile.height}cm, ${S.profile.weight}kg, objetivo ${S.profile.goal}.
+Metas: ${S.goals.kcal}kcal, P${S.goals.protein}/C${S.goals.carb}/G${S.goals.fat}g, água ${S.goals.water}ml.
+Hoje: ${totK}kcal consumidas em ${foods.length} alimentos, água ${water}ml. Sequência: ${streak} dias.
+Plano: ${S.plan.name} (${S.plan.days.map(d=>d.name).join(", ")}).
+Últimos treinos: ${sess.map(s=>`${s.date} ${s.dayName} vol ${s.volume}`).join(" | ")||"nenhum"}.
+Último corpo: ${body?`${body.weight}kg em ${body.date}`:"sem registro"}.`;
+}
+async function coachSend(){
+  const inp=$("#coach-in"); const q=inp.value.trim(); if(!q)return;
+  inp.value=""; coachMsgs.push({role:"user",content:q}); paintChat();
+  const cfg=await DB.kvGet("coach"); const ctx=await buildCoachContext();
+  const c=$("#chat"); const t=document.createElement("div"); t.className="msg ai"; t.innerHTML=`<span class="typing"><span></span><span></span><span></span></span>`; c.appendChild(t); c.scrollTop=c.scrollHeight;
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":cfg.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:cfg.model,max_tokens:700,system:"Você é o Coach TF, um personal trainer e nutricionista que fala português do Brasil, direto e motivador. Use os dados fornecidos para dar respostas práticas e específicas. Seja conciso.",
+        messages:[...coachMsgs.slice(-8).map(m=>({role:m.role,content:m.content})), {role:"user",content:"Contexto:\n"+ctx}]})});
+    const d=await r.json();
+    t.remove();
+    if(d.error){ coachMsgs.push({role:"assistant",content:"⚠️ "+(d.error.message||"Erro na API. Verifique sua chave/saldo.")}); }
+    else { coachMsgs.push({role:"assistant",content:d.content?.[0]?.text||"(sem resposta)"}); }
+  }catch(e){ t.remove(); coachMsgs.push({role:"assistant",content:"⚠️ Falha de conexão com a API da Anthropic."}); }
+  paintChat();
+}
+
+/* ---- GPS ---- */
+let gps={watchId:null,path:[],start:0,paused:false,pausedAt:0,pausedTotal:0,map:null,line:null,type:"Corrida"};
+function openGPS(){
+  openSheet(`<h2>🛰️ Atividade por GPS</h2>
+    <div class="seg" style="margin-bottom:12px" id="gps-type">${["Corrida","Caminhada","Pedalada"].map((t,i)=>`<button class="${i===0?'active':''}" data-gt="${t}">${t}</button>`).join("")}</div>
+    <div id="map"></div>
+    <div class="stat-grid" style="margin:14px 0"><div class="stat"><div class="v" id="gps-dist">0.00<small>km</small></div><div class="l">Distância</div></div>
+      <div class="stat"><div class="v" id="gps-time">0:00</div><div class="l">Tempo</div></div>
+      <div class="stat"><div class="v" id="gps-pace">—</div><div class="l">Ritmo/km</div></div></div>
+    <div class="row" style="gap:10px" id="gps-ctrl"><button class="btn btn-primary grow" onclick="gpsStart()">▶ Iniciar</button></div>
+    <p class="faint" style="font-size:var(--text-xs);margin-top:10px">No navegador o GPS funciona com a tela ligada. Saia para a rua para melhor sinal.</p>`);
+  setTimeout(()=>{ gps.map=L.map("map",{zoomControl:false}).setView([-23.55,-46.63],15);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap",maxZoom:19}).addTo(gps.map);
+    gps.line=L.polyline([],{color:getComputedStyle(document.documentElement).getPropertyValue("--brand").trim(),weight:5}).addTo(gps.map);
+    if(navigator.geolocation) navigator.geolocation.getCurrentPosition(pos=>gps.map.setView([pos.coords.latitude,pos.coords.longitude],16),()=>{});
+  },200);
+  $$("[data-gt]").forEach(b=>b.onclick=()=>{$$("[data-gt]").forEach(x=>x.classList.toggle("active",x===b));gps.type=b.dataset.gt;});
+}
+function gpsStart(){
+  if(!navigator.geolocation){toast("GPS indisponível neste navegador","err");return;}
+  gps.path=[];gps.start=Date.now();gps.pausedTotal=0;gps.paused=false; gps.line.setLatLngs([]);
+  gps.watchId=navigator.geolocation.watchPosition(onGpsPos,err=>toast("Permita a localização para rastrear","err"),{enableHighAccuracy:true,maximumAge:1000,timeout:10000});
+  $("#gps-ctrl").innerHTML=`<button class="btn grow" onclick="gpsPause()" id="gps-pausebtn">⏸ Pausar</button><button class="btn btn-primary" onclick="gpsFinish()">■ Finalizar</button>`;
+  gps.timer=setInterval(updGps,1000); toast("Rastreio iniciado 🛰️");
+}
+function onGpsPos(pos){ if(gps.paused)return; const {latitude:la,longitude:lo}=pos.coords;
+  gps.path.push([la,lo]); gps.line.addLatLng([la,lo]); gps.map.setView([la,lo]); updGps(); }
+function gpsDist(){ let d=0; for(let i=1;i<gps.path.length;i++) d+=haversine(gps.path[i-1],gps.path[i]); return d; }
+function haversine(a,b){ const R=6371000,toR=x=>x*Math.PI/180; const dLa=toR(b[0]-a[0]),dLo=toR(b[1]-a[1]);
+  const h=Math.sin(dLa/2)**2+Math.cos(toR(a[0]))*Math.cos(toR(b[0]))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function elapsed(){ return (Date.now()-gps.start-gps.pausedTotal)/1000; }
+function updGps(){ const d=gpsDist(),t=elapsed(); if($("#gps-dist"))$("#gps-dist").innerHTML=`${fmt(d/1000,2)}<small>km</small>`;
+  if($("#gps-time"))$("#gps-time").textContent=hms(t); if($("#gps-pace"))$("#gps-pace").textContent=d>50?hms(t/(d/1000)):"—"; }
+function gpsPause(){ gps.paused=!gps.paused; if(gps.paused){gps.pausedAt=Date.now();$("#gps-pausebtn").textContent="▶ Retomar";}else{gps.pausedTotal+=Date.now()-gps.pausedAt;$("#gps-pausebtn").textContent="⏸ Pausar";} }
+async function gpsFinish(){
+  navigator.geolocation.clearWatch(gps.watchId); clearInterval(gps.timer);
+  const d=gpsDist(),t=Math.round(elapsed());
+  if(d<10){ toast("Atividade muito curta, descartada"); closeSheet(); return; }
+  await DB.put("activities",{date:todayKey(),type:gps.type,distanceM:Math.round(d),durationSec:t,path:gps.path});
+  closeSheet(); await checkAchievements(); renderHoje(); toast(`Atividade salva: ${fmt(d/1000,2)} km`,"ok");
+}
+
+/* ---- Tools ---- */
+function openTools(){
+  openSheet(`<h2>🛠 Ferramentas</h2>
+    <div class="card" style="background:var(--surface-2)"><span class="eyebrow">1RM (Epley)</span>
+      <div class="grid-2" style="margin-top:10px"><div class="field"><label>Carga (kg)</label><input class="input" id="rm-w" type="number" value="60" oninput="calc1rm()"></div>
+      <div class="field"><label>Reps</label><input class="input" id="rm-r" type="number" value="8" oninput="calc1rm()"></div></div>
+      <div id="rm-out" class="muted" style="font-size:var(--text-sm)"></div></div>
+    <div class="card" style="background:var(--surface-2);margin-top:12px"><span class="eyebrow">Anilhas por lado</span>
+      <div class="grid-2" style="margin-top:10px"><div class="field"><label>Peso total (kg)</label><input class="input" id="pl-t" type="number" value="60" oninput="calcPlates()"></div>
+      <div class="field"><label>Barra (kg)</label><input class="input" id="pl-b" type="number" value="20" oninput="calcPlates()"></div></div>
+      <div id="pl-out" class="muted" style="font-size:var(--text-sm)"></div></div>
+    <div class="card" style="background:var(--surface-2);margin-top:12px"><span class="eyebrow">Aquecimento</span>
+      <div class="field" style="margin-top:10px"><label>Peso de trabalho (kg)</label><input class="input" id="wu-w" type="number" value="80" oninput="calcWarmup()"></div>
+      <div id="wu-out" class="muted" style="font-size:var(--text-sm)"></div></div>`);
+  calc1rm();calcPlates();calcWarmup();
+}
+function calc1rm(){ const w=+$("#rm-w").value,r=+$("#rm-r").value; const rm=w*(1+r/30);
+  $("#rm-out").innerHTML=`<b style="color:var(--brand);font-size:var(--text-lg)">${fmt(rm,1)} kg</b> estimado<br>${[1,.95,.9,.85,.8,.7].map(p=>`${fmt(p*100)}%: ${fmt(rm*p,1)}kg`).join(" · ")}`; }
+function calcPlates(){ const t=+$("#pl-t").value,b=+$("#pl-b").value; let per=(t-b)/2;
+  if(per<0){$("#pl-out").textContent="Peso menor que a barra.";return;}
+  const plates=[25,20,15,10,5,2.5,1.25]; let out=[],rem=per;
+  plates.forEach(p=>{ const n=Math.floor(rem/p); if(n>0){out.push(`${n}×${p}kg`);rem=+(rem-n*p).toFixed(2);} });
+  $("#pl-out").innerHTML=`Por lado (${fmt(per,2)}kg): <b>${out.join(" + ")||"—"}</b>${rem>0?` <span style="color:var(--warn)">(faltam ${fmt(rem,2)}kg)</span>`:""}`; }
+function calcWarmup(){ const w=+$("#wu-w").value;
+  const sets=[[.4,8],[.6,5],[.8,3]].map(([p,r])=>`${fmt(w*p,1)}kg × ${r}`);
+  $("#wu-out").innerHTML="Séries de aquecimento:<br>"+sets.join("<br>"); }
+
+/* ---- Achievements ---- */
+const ACHS=[
+  {id:"first",em:"🎯",nm:"Primeiro treino",ds:"Conclua 1 treino",test:d=>d.sessions>=1},
+  {id:"10w",em:"💪",nm:"Dez treinos",ds:"10 treinos",test:d=>d.sessions>=10},
+  {id:"streak3",em:"🔥",nm:"Sequência 3",ds:"3 dias seguidos",test:d=>d.streak>=3},
+  {id:"streak7",em:"⚡",nm:"Sequência 7",ds:"7 dias seguidos",test:d=>d.streak>=7},
+  {id:"run5",em:"🏃",nm:"5 km",ds:"Atividade de 5km",test:d=>d.maxDist>=5000},
+  {id:"body1",em:"⚖️",nm:"Registro corporal",ds:"Registre o corpo",test:d=>d.body>=1},
+  {id:"vol10k",em:"🏋️",nm:"Volume 10k",ds:"10.000 kg num treino",test:d=>d.maxVol>=10000},
+];
+async function achData(){
+  const sessions=await DB.all("sessions"), acts=await DB.all("activities"), body=await DB.all("body");
+  return {sessions:sessions.length,streak:await computeStreak(),maxDist:Math.max(0,...acts.map(a=>a.distanceM)),body:body.length,maxVol:Math.max(0,...sessions.map(s=>s.volume))};
+}
+async function checkAchievements(){
+  const d=await achData(); const unlocked=await DB.kvGet("achievements",[]);
+  for(const a of ACHS){ if(a.test(d) && !unlocked.includes(a.id)){ unlocked.push(a.id); toast(`🏆 Conquista: ${a.nm}!`,"ok"); } }
+  await DB.kvSet("achievements",unlocked);
+}
+async function openAchievements(){
+  const d=await achData(); const unlocked=await DB.kvGet("achievements",[]);
+  openSheet(`<h2>🏆 Conquistas <span class="faint" style="font-size:var(--text-sm);font-weight:500">${unlocked.length}/${ACHS.length}</span></h2>
+    <div class="badge-grid">${ACHS.map(a=>{const un=a.test(d)||unlocked.includes(a.id);return `<div class="badge ${un?'un':''}"><div class="em">${a.em}</div><div class="nm">${a.nm}</div><div class="ds">${a.ds}</div></div>`;}).join("")}</div>`);
+}
+
+/* ---- Profile edit / settings / backup / about ---- */
+function openProfileEdit(){
+  const p=S.profile;
+  openSheet(`<h2>👤 Perfil & objetivo</h2>
+    <div class="field"><label>Nome</label><input class="input" id="p-name" value="${p.name}"></div>
+    <div class="grid-2"><div class="field"><label>Sexo</label><select class="input" id="p-sex"><option value="M" ${p.sex==='M'?'selected':''}>Masculino</option><option value="F" ${p.sex==='F'?'selected':''}>Feminino</option></select></div>
+    <div class="field"><label>Ano nasc.</label><input class="input" id="p-birth" type="number" value="${p.birth}"></div></div>
+    <div class="grid-2"><div class="field"><label>Altura (cm)</label><input class="input" id="p-h" type="number" value="${p.height}"></div>
+    <div class="field"><label>Meta de peso (kg)</label><input class="input" id="p-wg" type="number" value="${S.prefs.weightGoal}"></div></div>
+    <div class="field"><label>Objetivo</label><select class="input" id="p-goal">${["manter","emagrecer","ganhar massa"].map(o=>`<option ${p.goal===o?'selected':''}>${o}</option>`).join("")}</select></div>
+    <button class="btn btn-primary btn-block" onclick="saveProfile()">Salvar</button>`);
+}
+async function saveProfile(){
+  S.profile={...S.profile,name:$("#p-name").value||"Atleta",sex:$("#p-sex").value,birth:+$("#p-birth").value,height:+$("#p-h").value,goal:$("#p-goal").value};
+  S.prefs.weightGoal=+$("#p-wg").value; await DB.kvSet("profile",S.profile); await DB.kvSet("prefs",S.prefs);
+  closeSheet(); renderHoje(); toast("Perfil salvo");
+}
+function openSettings(){
+  openSheet(`<h2>⚙️ Configurações</h2>
+    <div class="field"><label>Tema</label><div class="seg" id="set-theme"><button class="${S.prefs.theme==='dark'?'active':''}" data-th="dark">Escuro</button><button class="${S.prefs.theme==='light'?'active':''}" data-th="light">Claro</button></div></div>
+    <div class="field"><label>Unidade de peso</label><div class="seg" id="set-unit"><button class="${S.prefs.unit==='kg'?'active':''}" data-u="kg">kg</button><button class="${S.prefs.unit==='lb'?'active':''}" data-u="lb">lb</button></div></div>
+    <div class="field"><label>Idioma</label><select class="input" id="set-lang"><option value="pt" selected>Português</option><option value="en">English</option><option value="es">Español</option></select></div>
+    <hr class="divider"><span class="eyebrow">Treino</span>
+    <label class="row between" style="margin:12px 0"><span>Timer de descanso</span><input type="checkbox" id="set-rest" ${S.prefs.restTimer?'checked':''} style="width:22px;height:22px;accent-color:var(--brand)"></label>
+    <div class="field"><label>Segundos de descanso</label><input class="input" id="set-restsec" type="number" value="${S.prefs.restSec}"></div>
+    <button class="btn btn-primary btn-block" onclick="saveSettings()">Salvar</button>`);
+  $$("#set-theme [data-th]").forEach(b=>b.onclick=()=>{$$("#set-theme [data-th]").forEach(x=>x.classList.toggle("active",x===b));applyTheme(b.dataset.th);S.prefs.theme=b.dataset.th;});
+  $$("#set-unit [data-u]").forEach(b=>b.onclick=()=>{$$("#set-unit [data-u]").forEach(x=>x.classList.toggle("active",x===b));S.prefs.unit=b.dataset.u;});
+}
+async function saveSettings(){
+  S.prefs.lang=$("#set-lang").value; S.prefs.restTimer=$("#set-rest").checked; S.prefs.restSec=+$("#set-restsec").value||90;
+  await DB.kvSet("prefs",S.prefs); closeSheet(); renderAll(); toast("Configurações salvas");
+}
+async function openBackup(){
+  openSheet(`<h2>⬇ Backup</h2><p class="muted" style="font-size:var(--text-sm);margin-bottom:14px">Exporte todos os seus dados (treinos, dieta, corpo, atividades, metas) em um arquivo JSON, ou restaure de um backup.</p>
+    <button class="btn btn-primary btn-block" onclick="exportAll()">⬆ Exportar tudo</button>
+    <button class="btn btn-block" style="margin-top:10px" onclick="importAll()">⬇ Importar backup</button>
+    <hr class="divider"><button class="btn btn-danger btn-block" onclick="wipe()">Apagar todos os dados</button>`);
+}
+async function exportAll(){
+  const data={v:1,exportedAt:new Date().toISOString(),kv:{},stores:{}};
+  for(const s of ["sessions","foods","body","activities","fasting"]) data.stores[s]=await DB.all(s);
+  data.kv={goals:S.goals,profile:S.profile,plan:S.plan,prefs:S.prefs,achievements:await DB.kvGet("achievements",[])};
+  download("tartafit-backup.json",JSON.stringify(data,null,2)); toast("Backup exportado");
+}
+function importAll(){
+  const inp=document.createElement("input"); inp.type="file"; inp.accept=".json";
+  inp.onchange=async()=>{ try{ const d=JSON.parse(await inp.files[0].text());
+    if(d.kv){ for(const[k,v]of Object.entries(d.kv)) await DB.kvSet(k,v); }
+    if(d.stores){ for(const[s,arr]of Object.entries(d.stores)) for(const o of arr) await DB.put(s,o); }
+    await boot(); closeSheet(); toast("Backup restaurado","ok");
+  }catch(e){ toast("Arquivo inválido","err"); } };
+  inp.click();
+}
+async function wipe(){ if(!confirm("Apagar TODOS os dados do app neste navegador?"))return; await DB.clearAll(); location.reload(); }
+function openAbout(){
+  openSheet(`<h2>ℹ️ Sobre</h2>
+    <div class="card" style="background:var(--surface-2);text-align:center">
+      <div class="avatar" style="width:64px;height:64px;margin:0 auto 12px;font-size:1.3rem">TF</div>
+      <h3>Tarta Fit — Web</h3><p class="muted">Versão 1.0.0 (web)</p></div>
+    <p class="muted" style="font-size:var(--text-sm);margin:16px 0">Versão web do app de treino & dieta. Seus dados ficam no <b>banco de dados local do navegador</b> (IndexedDB). Recursos nativos como Health Connect, GPS em segundo plano e push não estão disponíveis na web.</p>
+    <a class="btn btn-block" href="./privacy.html" target="_blank">Política de privacidade</a>
+    <p class="faint" style="font-size:var(--text-xs);text-align:center;margin-top:14px">tartarotti.rl@gmail.com</p>`);
+}
+
+/* ============================ UI plumbing ============================ */
+function bindGlobal(){
+  $$(".navtab").forEach(b=>b.onclick=()=>goScreen(b.dataset.screen));
+  $("#themeBtn").onclick=()=>{ const t=S.prefs.theme==='dark'?'light':'dark'; applyTheme(t); S.prefs.theme=t; DB.kvSet("prefs",S.prefs); if($("#evoPane").innerHTML && $("#scr-evolucao").classList.contains("active")) renderEvo(curEvo); };
+  $("#profileBtn").onclick=openProfile;
+  $("#editTrainBtn").onclick=()=>goScreen("cadastrar");
+  $$("[data-quick]").forEach(b=>b.onclick=()=>({coach:openCoach,gps:openGPS,weight:openProfileEdit}[b.dataset.quick]()));
+  $$("#cadTabs [data-cad]").forEach(b=>b.onclick=()=>{ $$("#cadTabs [data-cad]").forEach(x=>x.classList.toggle("active",x===b));
+    ["treino","dieta","corpo"].forEach(t=>$("#cad-"+t).hidden=(t!==b.dataset.cad)); });
+  $$("#evoTabs [data-evo]").forEach(b=>b.onclick=()=>{ $$("#evoTabs [data-evo]").forEach(x=>x.classList.toggle("active",x===b)); curEvo=b.dataset.evo; renderEvo(curEvo); });
+  $("#scrim").onclick=closeSheet;
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeSheet(); });
+}
+let curEvo="treinos";
+function goScreen(name){
+  $$(".screen").forEach(s=>s.classList.toggle("active",s.id==="scr-"+name));
+  $$(".navtab").forEach(b=>b.setAttribute("aria-current",b.dataset.screen===name?"page":"false"));
+  window.scrollTo({top:0,behavior:"smooth"});
+  if(name==="evolucao") renderEvo(curEvo);
+  if(name==="hoje") renderHoje();
+}
+function applyTheme(t){ document.documentElement.setAttribute("data-theme",t);
+  $("#themeIcon").outerHTML = t==="dark"
+    ? `<svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`
+    : `<svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
+}
+/* sheet */
+function openSheet(html){ $("#sheetBody").innerHTML=html; $("#sheet").classList.add("open"); $("#scrim").classList.add("open"); }
+function closeSheet(){ $("#sheet").classList.remove("open"); $("#scrim").classList.remove("open"); }
+/* toast */
+function toast(msg,kind=""){ const t=document.createElement("div"); t.className="toast "+(kind||""); t.textContent=msg; $("#toasts").appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";t.style.transition="opacity .3s";setTimeout(()=>t.remove(),300);},3200); }
+/* download */
+function download(name,content){ const b=new Blob([content],{type:"application/json"}); const u=URL.createObjectURL(b);
+  const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
+/* expose for inline handlers */
+Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit});
+
+boot().catch(e=>{ document.body.innerHTML=`<div style="padding:40px;font-family:sans-serif">Erro ao iniciar: ${e.message}. Seu navegador suporta IndexedDB?</div>`; });
+</script>
+</body>
+</html>

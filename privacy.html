@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Política de Privacidade — Tarta Fit</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #0a0a0a; color: #e5e7eb;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 40px 22px 80px; }
+  .logo {
+    width: 64px; height: 64px; border-radius: 16px;
+    background: linear-gradient(135deg, #a3e635, #65a30d);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 26px; color: #0a0a0a; letter-spacing: -1px;
+    margin-bottom: 18px;
+  }
+  h1 { font-size: 28px; margin: 0 0 4px; color: #fff; }
+  .upd { color: #9ca3af; font-size: 13px; margin-bottom: 28px; }
+  h2 { font-size: 18px; color: #a3e635; margin: 30px 0 8px; }
+  a { color: #60a5fa; }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  strong { color: #fff; }
+  footer { margin-top: 40px; color: #6b7280; font-size: 12px; border-top: 1px solid #1f1f1f; padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">TF</div>
+  <h1>Política de Privacidade — Tarta Fit</h1>
+  <div class="upd">Última atualização: 2026-06-04</div>
+
+  <p>O <strong>Tarta Fit</strong> ("app") é um aplicativo de acompanhamento de
+  treino e dieta. Esta política descreve quais dados o app trata e como.</p>
+
+  <h2>Quais dados coletamos</h2>
+  <p>Você fornece e o app armazena:</p>
+  <ul>
+    <li><strong>Conta:</strong> seu endereço de e-mail (autenticação via Firebase Authentication).</li>
+    <li><strong>Dados de treino e saúde:</strong> treinos, séries/cargas, sessões, recordes, peso corporal, medidas, dieta/macros, hidratação, sono/bem-estar, jejum e dados de perfil (sexo, ano de nascimento, altura, nível de atividade, objetivo).</li>
+    <li><strong>Localização (GPS) — opcional:</strong> quando você inicia uma <strong>atividade</strong> (corrida/caminhada/pedalada), o app registra percurso, distância, ritmo e tempo. O rastreio pode continuar com a tela apagada (serviço em primeiro plano com notificação visível) e só ocorre quando você o inicia.</li>
+    <li><strong>Health Connect — opcional:</strong> se você autorizar, o app <strong>lê</strong> (nunca grava) passos, distância, frequência cardíaca, sono, calorias, treinos e peso do seu relógio/pulseira/balança para exibir no app. Você escolhe o que liberar e pode revogar a qualquer momento.</li>
+    <li><strong>Fotos de progresso:</strong> ficam no armazenamento privado do app no dispositivo, com <strong>backup opcional</strong> (ativado por você) na sua conta no Firebase Storage, enviado por HTTPS e restrito à sua conta.</li>
+  </ul>
+
+  <h2>Coach de IA (opcional)</h2>
+  <p>Se você ativar o Coach de IA, suas perguntas e um resumo dos seus dados de
+  treino/dieta são enviados ao provedor de IA (<strong>Anthropic — Claude</strong>)
+  para gerar a resposta.</p>
+
+  <h2>Amigos e ranking (opcional)</h2>
+  <p>Se você ativar a função social, um conjunto <strong>limitado e não sensível</strong>
+  de estatísticas fica visível para amigos que você adicionar: sequência (streak),
+  treinos e volume da semana, passos da semana e distância de atividades da semana,
+  além de nome de exibição e código de amigo. <strong>Peso, % de gordura, medidas,
+  fotos, dieta e localização/percursos NUNCA são compartilhados.</strong> A função é
+  desligada por padrão.</p>
+
+  <h2>Como os dados são usados e armazenados</h2>
+  <ul>
+    <li>Os dados são salvos localmente e <strong>sincronizados na sua conta</strong> no <strong>Google Firebase (Cloud Firestore/Storage)</strong>, para você acessar de outros aparelhos. A transmissão é por <strong>HTTPS (criptografada em trânsito)</strong>.</li>
+    <li>O acesso é restrito à <strong>sua própria conta</strong> por regras de segurança do Firebase. Estatísticas sociais (se ativadas) ficam num documento próprio, legível por usuários autenticados que tenham seu código de amigo.</li>
+    <li><strong>Não</strong> usamos identificadores de publicidade, SDKs de anúncios nem analytics de terceiros. Não vendemos seus dados. Subprocessadores: Google (Firebase) e, se você usar o Coach, Anthropic.</li>
+  </ul>
+
+  <h2>Permissões do aplicativo</h2>
+  <ul>
+    <li><strong>Internet:</strong> sincronização com a nuvem, login, mapa e IA.</li>
+    <li><strong>Localização (fina/aproximada e em segundo plano):</strong> apenas para o rastreio de atividades por GPS que você inicia.</li>
+    <li><strong>Notificações:</strong> lembretes e a notificação do rastreio GPS em andamento.</li>
+    <li><strong>Câmera (via app de câmera do sistema):</strong> apenas quando você escolhe tirar uma foto de progresso.</li>
+    <li><strong>Health Connect (leitura):</strong> apenas os tipos que você autorizar.</li>
+  </ul>
+
+  <h2>Seus direitos / exclusão de dados</h2>
+  <ul>
+    <li>Você pode <strong>excluir sua conta</strong> dentro do app (Perfil → Conta → Excluir conta), o que remove sua autenticação e os dados sincronizados na nuvem.</li>
+    <li>As fotos podem ser excluídas individualmente no app.</li>
+    <li>Revogue o Health Connect e a localização nas configurações do Android a qualquer momento.</li>
+    <li>Para solicitações relacionadas a dados, contate <a href="mailto:tartarotti.rl@gmail.com">tartarotti.rl@gmail.com</a>.</li>
+  </ul>
+
+  <h2>Crianças</h2>
+  <p>O app não é direcionado a menores de 13 anos.</p>
+
+  <h2>Alterações</h2>
+  <p>Podemos atualizar esta política; a data no topo indica a última revisão.</p>
+
+  <h2>Contato</h2>
+  <p>Dúvidas sobre privacidade: <a href="mailto:tartarotti.rl@gmail.com">tartarotti.rl@gmail.com</a>.</p>
+
+  <footer>Tarta Fit · com.tartafit.app</footer>
+</div>
+</body>
+</html>
