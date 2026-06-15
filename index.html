@@ -272,6 +272,40 @@ canvas { max-width:100%; }
 .list-menu .ic { width:38px;height:38px;border-radius:var(--r-md); background: var(--surface-2); display:grid;place-items:center; color: var(--brand); flex:none; }
 .list-menu button:hover .ic { background: var(--surface-3); }
 .list-menu .ic svg{width:20px;height:20px}
+
+/* ===== Polimento visual (b9) ===== */
+/* Cabeçalho de seção com barra de acento */
+.section-title h2 { position: relative; padding-left: 12px; }
+.section-title h2::before { content:""; position:absolute; left:0; top:50%; transform:translateY(-50%); width:4px; height:0.85em; border-radius:99px; background: linear-gradient(var(--brand),var(--brand-2)); }
+/* Disclosure (<details>) com seta custom e suave */
+details > summary { list-style:none; }
+details > summary::-webkit-details-marker { display:none; }
+details > summary { position:relative; padding-right: 22px; }
+details > summary::after { content:"⌄"; position:absolute; right:4px; top:50%; transform:translateY(-60%); color:var(--text-faint); transition: transform var(--ease); font-size:1.1em; }
+details[open] > summary::after { transform:translateY(-30%) rotate(180deg); }
+/* Nav: realce do item ativo com "pílula" atrás */
+.navtab::before { content:""; position:absolute; inset:8px 10px; border-radius:99px; background:var(--brand); opacity:0; transform:scale(.6); transition:var(--ease); z-index:-1; }
+.navtab[aria-current="page"]::before { opacity:.12; transform:scale(1); }
+.navtab { position:relative; z-index:0; }
+/* Botão primário com brilho sutil */
+.btn-primary { position:relative; overflow:hidden; }
+.btn-primary::after { content:""; position:absolute; inset:0; background:linear-gradient(120deg,transparent 30%,oklch(1 0 0 / .18) 50%,transparent 70%); transform:translateX(-120%); transition:transform .6s var(--ease); }
+.btn-primary:hover::after { transform:translateX(120%); }
+/* Chips de macro mais legíveis */
+.chip { line-height:1.2; }
+/* Hero com mais respiro e título mais forte */
+.hero .greet { letter-spacing:-0.03em; }
+.streak-pill { white-space:nowrap; }
+/* Stat com leve realce no número */
+.stat .v { letter-spacing:-0.02em; }
+/* Cartões com transição de borda no hover (reforço) */
+.card { transition: var(--ease), border-color var(--ease); }
+/* Resumo da Evolução */
+.evo-sum { display:grid; grid-template-columns:repeat(auto-fit,minmax(72px,1fr)); gap:var(--sp-3); }
+.evo-sum .s { text-align:center; padding:var(--sp-3) var(--sp-2); border-radius:var(--r-md); background:var(--surface-2); border:1px solid var(--divider); }
+.evo-sum .s .v { font-family:"Cabinet Grotesk"; font-weight:800; font-size:var(--text-lg); }
+.evo-sum .s .v small { font-size:.55em; color:var(--text-muted); font-weight:600; }
+.evo-sum .s .l { font-size:var(--text-xs); color:var(--text-muted); margin-top:2px; }
 </style>
 </head>
 <body>
@@ -357,6 +391,7 @@ canvas { max-width:100%; }
   <main id="scr-evolucao" class="screen">
     <h1 style="font-size:var(--text-xl);margin:var(--sp-2) 0 var(--sp-1)">Evolução</h1>
     <p class="muted" style="margin-bottom:var(--sp-4)">Seu histórico e gráficos de progresso.</p>
+    <div id="evoSummary" style="margin-bottom:var(--sp-4)"></div>
     <div class="subtabs" id="evoTabs">
       <button class="chip active" data-evo="treinos">Treinos</button>
       <button class="chip" data-evo="graficos">Gráficos</button>
@@ -406,7 +441,7 @@ canvas { max-width:100%; }
    GPS. Coach IA (Claude).
    ==================================================================== */
 "use strict";
-const APP_VERSION = "2026-06-15 · b8";
+const APP_VERSION = "2026-06-15 · b9";
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const todayKey = (d=new Date())=> d.toISOString().slice(0,10);
@@ -1279,7 +1314,26 @@ async function saveBody(){
 
 /* ============================ EVOLUÇÃO ============================ */
 let chartRefs=[];
+async function renderEvoSummary(){
+  const el=$("#evoSummary"); if(!el) return;
+  const wk=Date.now()-7*864e5;
+  const sess=(await DB.all("sessions")).filter(s=>new Date(s.date).getTime()>=wk);
+  const acts=(await DB.all("activities")).filter(a=>new Date(a.date).getTime()>=wk);
+  const vol=sess.reduce((a,s)=>a+s.volume,0);
+  const km=acts.reduce((a,x)=>a+x.distanceM,0)/1000;
+  const body=(await DB.all("body")).sort((a,b)=>a.date.localeCompare(b.date));
+  const w=body.length?body[body.length-1].weight:S.profile.weight;
+  const dW=body.length>1?(body[body.length-1].weight-body[0].weight):0;
+  el.innerHTML=`<div class="card"><span class="eyebrow">Últimos 7 dias</span>
+    <div class="evo-sum" style="margin-top:12px">
+      <div class="s"><div class="v">${sess.length}</div><div class="l">treinos</div></div>
+      <div class="s"><div class="v">${fmt(vol)}<small>${S.prefs.unit}</small></div><div class="l">volume</div></div>
+      <div class="s"><div class="v">${fmt(km,1)}<small>km</small></div><div class="l">atividade</div></div>
+      <div class="s"><div class="v">${fmt(w,1)}<small>${S.prefs.unit}</small></div><div class="l">peso${dW?` (${dW>0?'+':''}${fmt(dW,1)})`:''}</div></div>
+    </div></div>`;
+}
 async function renderEvo(tab){
+  renderEvoSummary();
   chartRefs.forEach(c=>c.destroy&&c.destroy()); chartRefs=[];
   const pane=$("#evoPane");
   if(tab==="treinos"){
@@ -1294,7 +1348,7 @@ async function renderEvo(tab){
       <div class="card" style="margin-top:var(--sp-4)"><span class="eyebrow">Volume por treino</span><canvas id="ch-vol" height="170"></canvas></div>`;
     const body=(await DB.all("body")).sort((a,b)=>a.date.localeCompare(b.date));
     const sess=(await DB.all("sessions")).sort((a,b)=>a.date.localeCompare(b.date));
-    drawLine("ch-weight", body.map(b=>b.date), body.map(b=>b.weight), "Peso");
+    drawLine("ch-weight", body.map(b=>b.date), body.map(b=>b.weight), "Peso", S.prefs.weightGoal);
     drawBar("ch-vol", sess.map(s=>s.date), sess.map(s=>s.volume), "Volume");
   }
   else if(tab==="cargas"){
@@ -1321,8 +1375,10 @@ async function renderEvo(tab){
 const pace=a=> a.distanceM>0? hms(a.durationSec/(a.distanceM/1000)) : "—";
 function emptyState(msg){ return `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg><p>${msg}</p></div>`; }
 function chartColors(){ const cs=getComputedStyle(document.documentElement); return {brand:cs.getPropertyValue("--brand").trim(),grid:cs.getPropertyValue("--divider").trim(),text:cs.getPropertyValue("--text-muted").trim()}; }
-function drawLine(id,labels,data,label){ const c=chartColors(); const el=$("#"+id); if(!el)return;
-  chartRefs.push(new Chart(el,{type:"line",data:{labels,datasets:[{label,data,borderColor:c.brand,backgroundColor:c.brand+"22",fill:true,tension:.3,pointRadius:3}]},options:chartOpts(c)})); }
+function drawLine(id,labels,data,label,goal){ const c=chartColors(); const el=$("#"+id); if(!el)return;
+  const datasets=[{label,data,borderColor:c.brand,backgroundColor:c.brand+"22",fill:true,tension:.3,pointRadius:3}];
+  if(goal) datasets.push({label:"Meta",data:labels.map(()=>goal),borderColor:c.text,borderDash:[6,6],borderWidth:1.5,pointRadius:0,fill:false});
+  chartRefs.push(new Chart(el,{type:"line",data:{labels,datasets},options:chartOpts(c)})); }
 function drawBar(id,labels,data,label){ const c=chartColors(); const el=$("#"+id); if(!el)return;
   chartRefs.push(new Chart(el,{type:"bar",data:{labels,datasets:[{label,data,backgroundColor:c.brand+"cc",borderRadius:6}]},options:chartOpts(c)})); }
 function chartOpts(c){ return {responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:c.text,maxRotation:0,autoSkip:true,maxTicksLimit:6},grid:{display:false}},y:{ticks:{color:c.text},grid:{color:c.grid}}}}; }
