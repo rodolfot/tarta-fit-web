@@ -924,6 +924,12 @@ const MEALS=[
   {cat:"🌙 Jantar", n:"Sopa de frango com legumes + 1 ovo", kcal:380, p:40, c:25, f:12},
   {cat:"🌙 Jantar", n:"Wrap integral com frango/atum + queijo", kcal:430, p:42, c:35, f:14},
 ];
+// Dias prontos (índices em MEALS): café · almoço · lanche · jantar
+const DAYS=[
+  {nm:"Dia 1", idx:[0,4,8,14]},
+  {nm:"Dia 2", idx:[1,6,10,13]},
+  {nm:"Dia 3", idx:[3,5,9,12]},
+];
 function openAddFood(){
   const cats=[...new Set(MEALS.map(m=>m.cat))];
   const prontasHtml=cats.map(c=>`<div style="margin-bottom:14px"><div class="eyebrow" style="margin-bottom:8px">${c}</div>
@@ -938,7 +944,10 @@ function openAddFood(){
       <button class="chip" data-foodtab="rapida">⚡ Rápida</button>
     </div>
     <div id="ft-prontas">
-      <p class="faint" style="font-size:var(--text-xs);margin-bottom:12px">Refeições da sua dieta hiperproteica (Mounjaro). Toque em <b>+ Add</b> pra lançar no diário de hoje.</p>
+      <p class="faint" style="font-size:var(--text-xs);margin-bottom:10px">Refeições da sua dieta hiperproteica (Mounjaro). Toque em <b>+ Add</b> pra lançar no diário de hoje.</p>
+      <label class="row" style="gap:8px;margin-bottom:10px;font-size:var(--text-sm);font-weight:600"><input type="checkbox" id="meal-half" style="width:20px;height:20px;accent-color:var(--brand)"> ½ porção <span class="faint" style="font-weight:500">(dias de mais enjoo — metade dos macros)</span></label>
+      <div style="margin-bottom:14px"><div class="eyebrow" style="margin-bottom:8px">🍱 Lançar o dia inteiro</div>
+        <div class="row wrap" style="gap:8px">${DAYS.map((d,i)=>`<button class="chip active" onclick="addFullDay(${i})">${d.nm}</button>`).join("")}</div></div>
       ${prontasHtml}
     </div>
     <div id="ft-busca" hidden>
@@ -967,10 +976,20 @@ function openAddFood(){
     ["prontas","busca","manual","rapida"].forEach(t=>$("#ft-"+t).hidden=(t!==b.dataset.foodtab));
   });
 }
+async function _putMeal(i,half){
+  const m=MEALS[i]; if(!m) return 0; const f=half?0.5:1;
+  await DB.put("foods",{date:todayKey(),name:(half?"½ ":"")+m.n,qty:0,kcal:Math.round(m.kcal*f),protein:Math.round(m.p*f),carb:Math.round(m.c*f),fat:Math.round(m.f*f)});
+  return Math.round(m.p*f);
+}
 async function addMeal(i){
-  const m=MEALS[i]; if(!m) return;
-  await DB.put("foods",{date:todayKey(),name:m.n,qty:0,kcal:m.kcal,protein:m.p,carb:m.c,fat:m.f});
-  renderDietPanel(); renderMission(); toast(`${m.n.split(" ")[0]}… +${m.p}g proteína ✅`,"ok");
+  const half=$("#meal-half")?.checked;
+  const p=await _putMeal(i,half);
+  renderDietPanel(); renderMission(); toast(`${(half?"½ ":"")+MEALS[i].n.split(" ")[0]}… +${p}g proteína ✅`,"ok");
+}
+async function addFullDay(d){
+  const day=DAYS[d]; if(!day) return; const half=$("#meal-half")?.checked;
+  let totP=0; for(const i of day.idx) totP+=await _putMeal(i,half);
+  closeSheet(); renderDietPanel(); renderMission(); toast(`${day.nm}${half?" (½)":""} lançado: 4 refeições · ${totP}g proteína 🍱`,"ok");
 }
 async function searchOFF(){
   const q=$("#off-q").value.trim(); if(!q) return;
@@ -1519,7 +1538,7 @@ function toast(msg,kind=""){ const t=document.createElement("div"); t.className=
 function download(name,content){ const b=new Blob([content],{type:"application/json"}); const u=URL.createObjectURL(b);
   const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
 /* expose for inline handlers */
-Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,addMeal,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow});
+Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,addMeal,addFullDay,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow});
 
 boot().catch(e=>{ document.body.innerHTML=`<div style="padding:40px;font-family:sans-serif">Erro ao iniciar: ${e.message}. Seu navegador suporta IndexedDB?</div>`; });
 </script>
