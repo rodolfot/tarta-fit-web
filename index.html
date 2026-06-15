@@ -902,14 +902,46 @@ async function addWater(ml){
   await DB.kvSet("water_"+tk,w); renderDietPanel(); renderMission();
 }
 async function delFood(id){ await DB.del("foods",id); renderDietPanel(); renderMission(); }
+const MEALS=[
+  // ☀️ Café da manhã (~40g proteína)
+  {cat:"☀️ Café da manhã", n:"Ovos mexidos + pão integral + whey", kcal:430, p:40, c:28, f:18},
+  {cat:"☀️ Café da manhã", n:"Iogurte + whey + aveia + banana", kcal:430, p:45, c:50, f:8},
+  {cat:"☀️ Café da manhã", n:"Omelete (2 ovos+2 claras) + cottage + tomate", kcal:330, p:38, c:6, f:18},
+  {cat:"☀️ Café da manhã", n:"Tapioca com frango desfiado + 1 ovo", kcal:380, p:36, c:40, f:10},
+  // 🍽️ Almoço (~50g)
+  {cat:"🍽️ Almoço", n:"Frango grelhado + arroz + feijão + salada", kcal:620, p:55, c:65, f:12},
+  {cat:"🍽️ Almoço", n:"Patinho moído + purê de batata + brócolis", kcal:520, p:45, c:40, f:18},
+  {cat:"🍽️ Almoço", n:"Tilápia + arroz + legumes refogados", kcal:560, p:52, c:55, f:12},
+  {cat:"🍽️ Almoço", n:"Estrogonofe fit de frango + arroz", kcal:580, p:50, c:55, f:16},
+  // 🥤 Lanche / shake (~45g)
+  {cat:"🥤 Lanche / shake", n:"Shake: 2 whey + leite + banana + aveia", kcal:520, p:50, c:55, f:9},
+  {cat:"🥤 Lanche / shake", n:"Iogurte grego + whey + frutas vermelhas", kcal:400, p:50, c:35, f:7},
+  {cat:"🥤 Lanche / shake", n:"Atum + 2 torradas integrais + requeijão light", kcal:360, p:38, c:28, f:10},
+  {cat:"🥤 Lanche / shake", n:"Panqueca de banana (banana+ovo+whey)", kcal:330, p:32, c:35, f:9},
+  // 🌙 Jantar (~45g)
+  {cat:"🌙 Jantar", n:"Frango desfiado + omelete + salada", kcal:450, p:48, c:10, f:22},
+  {cat:"🌙 Jantar", n:"Carne magra + legumes + batata-doce", kcal:480, p:45, c:35, f:16},
+  {cat:"🌙 Jantar", n:"Sopa de frango com legumes + 1 ovo", kcal:380, p:40, c:25, f:12},
+  {cat:"🌙 Jantar", n:"Wrap integral com frango/atum + queijo", kcal:430, p:42, c:35, f:14},
+];
 function openAddFood(){
+  const cats=[...new Set(MEALS.map(m=>m.cat))];
+  const prontasHtml=cats.map(c=>`<div style="margin-bottom:14px"><div class="eyebrow" style="margin-bottom:8px">${c}</div>
+    ${MEALS.map((m,i)=>m.cat===c?`<div class="listrow"><div class="grow"><b style="font-size:var(--text-sm)">${m.n}</b>
+      <div class="faint" style="font-size:var(--text-xs)">${m.kcal}kcal · <span style="color:var(--brand)">P${m.p}</span> C${m.c} G${m.f}</div></div>
+      <button class="btn btn-sm btn-primary" onclick="addMeal(${i})">+ Add</button></div>`:"").join("")}</div>`).join("");
   openSheet(`<h2>Adicionar alimento</h2>
     <div class="subtabs" style="margin-bottom:14px">
-      <button class="chip active" data-foodtab="busca">🔎 Buscar</button>
+      <button class="chip active" data-foodtab="prontas">🍽️ Prontas</button>
+      <button class="chip" data-foodtab="busca">🔎 Buscar</button>
       <button class="chip" data-foodtab="manual">Manual</button>
       <button class="chip" data-foodtab="rapida">⚡ Rápida</button>
     </div>
-    <div id="ft-busca">
+    <div id="ft-prontas">
+      <p class="faint" style="font-size:var(--text-xs);margin-bottom:12px">Refeições da sua dieta hiperproteica (Mounjaro). Toque em <b>+ Add</b> pra lançar no diário de hoje.</p>
+      ${prontasHtml}
+    </div>
+    <div id="ft-busca" hidden>
       <div class="field"><label>Nome (base Open Food Facts · precisa de internet)</label>
         <input class="input" id="off-q" placeholder="ex: iogurte natural"></div>
       <button class="btn btn-block" onclick="searchOFF()">Buscar</button>
@@ -932,8 +964,13 @@ function openAddFood(){
     </div>`);
   $$("[data-foodtab]").forEach(b=>b.onclick=()=>{
     $$("[data-foodtab]").forEach(x=>x.classList.toggle("active",x===b));
-    ["busca","manual","rapida"].forEach(t=>$("#ft-"+t).hidden=(t!==b.dataset.foodtab));
+    ["prontas","busca","manual","rapida"].forEach(t=>$("#ft-"+t).hidden=(t!==b.dataset.foodtab));
   });
+}
+async function addMeal(i){
+  const m=MEALS[i]; if(!m) return;
+  await DB.put("foods",{date:todayKey(),name:m.n,qty:0,kcal:m.kcal,protein:m.p,carb:m.c,fat:m.f});
+  renderDietPanel(); renderMission(); toast(`${m.n.split(" ")[0]}… +${m.p}g proteína ✅`,"ok");
 }
 async function searchOFF(){
   const q=$("#off-q").value.trim(); if(!q) return;
@@ -1482,7 +1519,7 @@ function toast(msg,kind=""){ const t=document.createElement("div"); t.className=
 function download(name,content){ const b=new Blob([content],{type:"application/json"}); const u=URL.createObjectURL(b);
   const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
 /* expose for inline handlers */
-Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow});
+Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,addMeal,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow});
 
 boot().catch(e=>{ document.body.innerHTML=`<div style="padding:40px;font-family:sans-serif">Erro ao iniciar: ${e.message}. Seu navegador suporta IndexedDB?</div>`; });
 </script>
