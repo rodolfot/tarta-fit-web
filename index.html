@@ -330,7 +330,7 @@ canvas { max-width:100%; }
       </button>
       <button class="quick" data-quick="weight">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 6.5h11l1.5 13H5zM9 6.5a3 3 0 0 1 6 0"/></svg></div>
-        <h3>Meta de peso</h3><p id="weightGoalSub">—</p>
+        <h3>Registrar peso</h3><p id="weightGoalSub">—</p>
       </button>
     </div>
 
@@ -406,7 +406,7 @@ canvas { max-width:100%; }
    GPS. Coach IA (Claude).
    ==================================================================== */
 "use strict";
-const APP_VERSION = "2026-06-15 · b7";
+const APP_VERSION = "2026-06-15 · b8";
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const todayKey = (d=new Date())=> d.toISOString().slice(0,10);
@@ -677,7 +677,7 @@ async function renderHoje(){
   $("#profileBtn").textContent = (p.name[0]||"T")+(p.name.split(" ")[1]?.[0]||"F");
 
   const streak = await computeStreak();
-  $("#streakDays").textContent = streak;
+  $("#streakPill").innerHTML = streak>0 ? `🔥 ${streak} ${streak===1?'dia':'dias'}` : `✨ Bora começar`;
   $("#weightGoalSub").textContent = `${fmt(p.weight,1)} → ${fmt(S.prefs.weightGoal,1)} ${S.prefs.unit}`;
 
   await renderMission();
@@ -1251,6 +1251,20 @@ async function renderCadCorpo(){
       <div class="stat"><div class="v">${last.bodyfat?fmt(last.bodyfat,1)+'%':navyBF(last)?fmt(navyBF(last),1)+'%':'—'}</div><div class="l">% Gordura</div></div>
       <div class="stat"><div class="v">${fmt(last.weight,1)}</div><div class="l">Peso</div></div></div></div>`:""}`;
 }
+function openQuickWeight(){
+  openSheet(`<h2>⚖️ Registrar peso</h2>
+    <p class="muted" style="font-size:var(--text-sm);margin-bottom:14px">Pese-se 1×/semana, de manhã, em jejum. Veja a curva em Evolução → Corpo.</p>
+    <div class="field"><label>Peso de hoje (kg)</label><input class="input" id="qw-w" type="number" inputmode="decimal" value="${S.profile.weight}"></div>
+    <div class="row between" style="margin:2px 0 16px"><span class="muted" style="font-size:var(--text-sm)">Sua meta</span><b>${fmt(S.prefs.weightGoal,1)} ${S.prefs.unit}</b></div>
+    <button class="btn btn-primary btn-block" onclick="saveQuickWeight()">Salvar peso</button>
+    <button class="btn btn-block" style="margin-top:10px" onclick="goScreen('cadastrar');closeSheet()">Registro completo (medidas, %)</button>`);
+}
+async function saveQuickWeight(){
+  const w=parseFloat($("#qw-w").value); if(!w){toast("Informe o peso","err");return;}
+  await DB.put("body",{date:todayKey(),weight:w,bodyfat:null,waist:null,hip:null,neck:null,notes:""});
+  S.profile.weight=w; await DB.kvSet("profile",S.profile);
+  closeSheet(); renderHoje(); renderCadCorpo(); await checkAchievements(); toast(`Peso ${fmt(w,1)}${S.prefs.unit} registrado`,"ok");
+}
 const bmi=w=> w/Math.pow(S.profile.height/100,2);
 function navyBF(r){ if(!r.waist||!r.neck) return null; const h=S.profile.height;
   if(S.profile.sex==="M") return 495/(1.0324-0.19077*Math.log10(r.waist-r.neck)+0.15456*Math.log10(h))-450;
@@ -1564,7 +1578,7 @@ function bindGlobal(){
   $("#helpBtn").onclick=openWelcome;
   $("#profileBtn").onclick=openAccount;
   $("#editTrainBtn").onclick=()=>goScreen("cadastrar");
-  $$("[data-quick]").forEach(b=>b.onclick=()=>({coach:openCoach,gps:openGPS,weight:openProfileEdit}[b.dataset.quick]()));
+  $$("[data-quick]").forEach(b=>b.onclick=()=>({coach:openCoach,gps:openGPS,weight:openQuickWeight}[b.dataset.quick]()));
   $$("#cadTabs [data-cad]").forEach(b=>b.onclick=()=>{ $$("#cadTabs [data-cad]").forEach(x=>x.classList.toggle("active",x===b));
     ["treino","dieta","corpo"].forEach(t=>$("#cad-"+t).hidden=(t!==b.dataset.cad)); });
   $$("#evoTabs [data-evo]").forEach(b=>b.onclick=()=>{ $$("#evoTabs [data-evo]").forEach(x=>x.classList.toggle("active",x===b)); curEvo=b.dataset.evo; renderEvo(curEvo); });
@@ -1629,7 +1643,7 @@ function toast(msg,kind=""){ const t=document.createElement("div"); t.className=
 function download(name,content){ const b=new Blob([content],{type:"application/json"}); const u=URL.createObjectURL(b);
   const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
 /* expose for inline handlers */
-Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,addMeal,addFullDay,openShoppingList,shareShop,copyShop,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow,openGPS,openTools,openAchievements,openBackup,openSettings,openAbout,openCoach,openWelcome,closeWelcome,renderMais});
+Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,addMeal,addFullDay,openShoppingList,shareShop,copyShop,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openQuickWeight,saveQuickWeight,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow,openGPS,openTools,openAchievements,openBackup,openSettings,openAbout,openCoach,openWelcome,closeWelcome,renderMais});
 
 boot().catch(e=>{ document.body.innerHTML=`<div style="padding:40px;font-family:sans-serif">Erro ao iniciar: ${e.message}. Seu navegador suporta IndexedDB?</div>`; });
 </script>
