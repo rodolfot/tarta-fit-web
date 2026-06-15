@@ -430,8 +430,8 @@ const DB = (()=>{
 })();
 
 /* ---------------------- App State ---------------------- */
-const DEFAULT_GOALS = { kcal:2200, protein:150, carb:240, fat:70, water:2500 };
-const DEFAULT_PROFILE = { name:"Atleta", sex:"M", birth:1995, height:175, weight:78, activity:1.55, goal:"manter" };
+const DEFAULT_GOALS = { kcal:1800, protein:180, carb:145, fat:55, water:3300 };
+const DEFAULT_PROFILE = { name:"Atleta", sex:"M", birth:1995, height:175, weight:99, activity:1.55, goal:"emagrecer" };
 const DEFAULT_PLAN = {
   name:"Plano A — Full Body",
   days:[
@@ -507,7 +507,7 @@ const FASTS={ "16:8":16,"18:6":18,"20:4":20,"OMAD":23,"Livre":0 };
 
 let S = {
   goals:{...DEFAULT_GOALS}, profile:{...DEFAULT_PROFILE}, plan:structuredClone(DEFAULT_PLAN),
-  prefs:{ theme:"dark", unit:"kg", lang:"pt", weightGoal:75, restTimer:true, restSec:90 },
+  prefs:{ theme:"dark", unit:"kg", lang:"pt", weightGoal:90, restTimer:true, restSec:90 },
   liveWorkout:null, // {dayIdx, startedAt, sets:{exId:[bool]}, logs:{exId:[{load,reps,rpe}]}}
   fastingActive:null, // {start, protocol}
 };
@@ -520,8 +520,11 @@ async function boot(){
   S.plan    = await DB.kvGet("plan", structuredClone(DEFAULT_PLAN));
   S.prefs   = {...S.prefs, ...(await DB.kvGet("prefs", {}))};
   S.fastingActive = await DB.kvGet("fastingActive", null);
-  // seed plan if first run
-  if(!(await DB.kvGet("plan"))) await DB.kvSet("plan", S.plan);
+  // seed defaults on first run (grava as metas/perfil no banco local)
+  if((await DB.kvGet("plan"))==null) await DB.kvSet("plan", S.plan);
+  if((await DB.kvGet("goals"))==null) await DB.kvSet("goals", S.goals);
+  if((await DB.kvGet("profile"))==null) await DB.kvSet("profile", S.profile);
+  if((await DB.kvGet("prefs"))==null) await DB.kvSet("prefs", S.prefs);
   applyTheme(S.prefs.theme);
   bindGlobal();
   renderAll();
