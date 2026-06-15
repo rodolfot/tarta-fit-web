@@ -453,7 +453,7 @@ details[open] > summary::after { transform:translateY(-30%) rotate(180deg); }
    GPS. Coach IA (Claude).
    ==================================================================== */
 "use strict";
-const APP_VERSION = "2026-06-15 · b12";
+const APP_VERSION = "2026-06-15 · b13";
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const todayKey = (d=new Date())=> d.toISOString().slice(0,10);
@@ -1421,10 +1421,14 @@ function profileAction(k){
 /* ---- Coach IA (Claude / Gemini) ---- */
 let coachMsgs=[];
 const COACH_PROVIDERS={
-  google:{ name:"Google Gemini (grátis)", free:true, keyUrl:"https://aistudio.google.com/app/apikey", ph:"AIza...",
+  google:{ name:"Google Gemini (grátis)", free:true, kind:"gemini", keyUrl:"https://aistudio.google.com/app/apikey", ph:"AIza...", nocard:true,
     models:[["gemini-2.0-flash","Gemini 2.0 Flash (grátis, recomendado)"],["gemini-2.5-flash","Gemini 2.5 Flash"],["gemini-1.5-flash","Gemini 1.5 Flash"]] },
-  anthropic:{ name:"Anthropic (Claude · pago)", free:false, keyUrl:"https://console.anthropic.com/settings/keys", ph:"sk-ant-...",
+  groq:{ name:"Groq (grátis, rápido)", free:true, kind:"openai", base:"https://api.groq.com/openai/v1/chat/completions", keyUrl:"https://console.groq.com/keys", ph:"gsk_...", nocard:true,
+    models:[["llama-3.3-70b-versatile","Llama 3.3 70B (recomendado)"],["llama-3.1-8b-instant","Llama 3.1 8B (mais rápido)"]] },
+  anthropic:{ name:"Anthropic (Claude · pago)", free:false, kind:"anthropic", keyUrl:"https://console.anthropic.com/settings/keys", ph:"sk-ant-...",
     models:[["claude-sonnet-4-6","Claude Sonnet 4.6 (recomendado)"],["claude-opus-4-8","Claude Opus 4.8 (mais capaz)"],["claude-haiku-4-5-20251001","Claude Haiku 4.5 (rápido)"]] },
+  openai:{ name:"OpenAI (GPT · pago)", free:false, kind:"openai", base:"https://api.openai.com/v1/chat/completions", keyUrl:"https://platform.openai.com/api-keys", ph:"sk-...",
+    models:[["gpt-4o-mini","GPT-4o mini (barato)"],["gpt-4o","GPT-4o (capaz)"]] },
 };
 async function openCoach(){
   const cfg=await DB.kvGet("coach",null);
@@ -1433,12 +1437,9 @@ async function openCoach(){
 }
 function coachSetup(provider){
   const P=COACH_PROVIDERS[provider]||COACH_PROVIDERS.google;
-  const tip = provider==="google"
-    ? `<p class="faint" style="font-size:var(--text-xs);margin-bottom:12px">No Google AI Studio: <b>Create API key</b>. É <b>grátis</b> e não precisa de cartão.</p>`
-    : `<details style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600;font-size:var(--text-sm)">Não sei como conseguir a chave</summary>
-        <ol class="muted" style="font-size:var(--text-sm);margin:10px 0 0 18px;line-height:1.7">
-          <li>Acesse <b>console.anthropic.com</b>.</li><li>Em <b>Billing</b>, adicione créditos (US$ 5+) — assinatura do Claude.ai não serve.</li>
-          <li>Em <b>API Keys → Create Key</b>, copie (<code>sk-ant-...</code>, aparece uma vez).</li></ol></details>`;
+  const tip = P.free
+    ? `<p class="faint" style="font-size:var(--text-xs);margin-bottom:12px">No site do provedor: <b>Create API key</b>. É <b>grátis</b>${P.nocard?' e não precisa de cartão':''}. Tem limite de uso por dia, suficiente pra um coach.</p>`
+    : `<p class="faint" style="font-size:var(--text-xs);margin-bottom:12px">Provedor <b>pago</b> (cobra por uso). Crie a chave no site e configure créditos/billing. Assinatura do site (ex.: Claude.ai/ChatGPT Plus) <b>não</b> serve para a API.</p>`;
   openSheet(`<h2>🤖 Coach TF</h2>
     <p class="muted" style="font-size:var(--text-sm);margin-bottom:14px">Escolha o provedor de IA e cole sua chave. Ela fica <b>só no seu navegador</b> e nunca vai pra nuvem.</p>
     <div class="field"><label>Provedor</label><select class="input" id="coach-provider" onchange="coachSetup(this.value)">
@@ -1486,11 +1487,23 @@ async function coachSend(){
   const cfg=await DB.kvGet("coach"); const ctx=await buildCoachContext();
   const c=$("#chat"); const t=document.createElement("div"); t.className="msg ai"; t.innerHTML=`<span class="typing"><span></span><span></span><span></span></span>`; c.appendChild(t); c.scrollTop=c.scrollHeight;
   const history=[...coachMsgs.slice(-8).map(m=>({role:m.role,content:m.content})), {role:"user",content:"Contexto:\n"+ctx}];
+  const P=COACH_PROVIDERS[cfg.provider]||COACH_PROVIDERS.anthropic;
   try{
-    const answer = cfg.provider==="google" ? await callGemini(cfg,COACH_SYS,history) : await callClaude(cfg,COACH_SYS,history);
+    let answer;
+    if(P.kind==="gemini") answer=await callGemini(cfg,COACH_SYS,history);
+    else if(P.kind==="openai") answer=await callOpenAICompat(cfg,COACH_SYS,history,P.base);
+    else answer=await callClaude(cfg,COACH_SYS,history);
     t.remove(); coachMsgs.push({role:"assistant",content:answer});
   }catch(e){ t.remove(); coachMsgs.push({role:"assistant",content:"⚠️ "+(e.message||"Falha de conexão com a IA.")}); }
   paintChat();
+}
+async function callOpenAICompat(cfg,sys,history,base){
+  const messages=[{role:"system",content:sys},...history.map(m=>({role:m.role,content:m.content}))];
+  const r=await fetch(base,{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+cfg.key},
+    body:JSON.stringify({model:cfg.model,messages,max_tokens:700,temperature:0.7})});
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message||"Erro na API. Verifique a chave.");
+  return d.choices?.[0]?.message?.content||"(sem resposta)";
 }
 async function callClaude(cfg,sys,history){
   const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":cfg.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
