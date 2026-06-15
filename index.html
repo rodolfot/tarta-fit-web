@@ -316,8 +316,17 @@ canvas { max-width:100%; }
       <div id="missionList" class="stack" style="font-size:var(--text-sm)"></div>
     </div>
 
-    <!-- quick access -->
-    <div class="quick-grid" style="margin-top:var(--sp-4)">
+    <!-- treino de hoje -->
+    <div class="section-title"><h2>Treino de hoje</h2><button class="chip" id="editTrainBtn">Editar ▸</button></div>
+    <div class="card" id="todayWorkout"></div>
+
+    <!-- dieta -->
+    <div class="section-title"><h2>Dieta de hoje</h2></div>
+    <div class="stack" id="dietPanel"></div>
+
+    <!-- atalhos -->
+    <div class="section-title"><h2>Atalhos</h2></div>
+    <div class="quick-grid">
       <button class="quick" data-quick="coach">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M9 13v2M15 13v2"/></svg></div>
         <h3>Coach de IA</h3><p>Pergunte sobre seu treino</p>
@@ -331,14 +340,6 @@ canvas { max-width:100%; }
         <h3>Meta de peso</h3><p id="weightGoalSub">—</p>
       </button>
     </div>
-
-    <!-- treino de hoje -->
-    <div class="section-title"><h2>Treino de hoje</h2><button class="chip" id="editTrainBtn">Editar ▸</button></div>
-    <div class="card" id="todayWorkout"></div>
-
-    <!-- dieta sub -->
-    <div class="section-title"><h2>Dieta</h2></div>
-    <div class="card stack" id="dietPanel"></div>
 
     <!-- semana -->
     <div class="section-title"><h2>Sua semana</h2></div>
@@ -726,9 +727,24 @@ function renderTodayWorkout(){
   const day=S.plan.days[dayIdx];
   if(!day){ el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9h12M6 15h12M4 6v12M20 6v12"/></svg><p>Nenhum treino no plano. Toque em <b>Criar → Treino</b> (ou use um plano pronto).</p></div>`; return; }
   const live=S.liveWorkout;
-  let html=`<div class="row between"><div><span class="eyebrow">${live?'Em andamento':'Sugerido'}</span><h3 style="font-size:var(--text-lg)">${day.name}</h3></div>`;
-  html+= live? `<div style="text-align:right"><div class="display" id="workTimer" style="font-size:var(--text-lg);color:var(--brand)">0:00</div><span class="faint" style="font-size:var(--text-xs)">tempo</span></div>`:"";
-  html+=`</div>`;
+  // Estado COMPACTO quando não está treinando: só o essencial.
+  if(!live){
+    const totalSets=day.exercises.reduce((a,e)=>a+e.sets,0);
+    const est=Math.max(15,Math.round(totalSets*2.5));
+    el.innerHTML=`
+      <div><span class="eyebrow">Sugerido</span><h3 style="font-size:var(--text-lg)">${day.name}</h3>
+        <div class="faint" style="font-size:var(--text-xs);margin-top:2px">${day.exercises.length} exercícios · ~${est} min</div></div>
+      <div class="row wrap" style="gap:6px;margin-top:12px">
+        ${day.exercises.slice(0,4).map(e=>`<span class="chip">${e.name}</span>`).join("")}
+        ${day.exercises.length>4?`<span class="chip faint">+${day.exercises.length-4}</span>`:""}</div>
+      <div class="row" style="gap:10px;margin-top:16px">
+        <button class="btn btn-primary grow" onclick="startWorkout(${dayIdx})">▶ Iniciar treino</button>
+        <button class="btn" onclick="openGuided(${dayIdx})">🎯 Guiado</button></div>`;
+    return;
+  }
+  // Estado AO VIVO: lista interativa completa.
+  let html=`<div class="row between"><div><span class="eyebrow">Em andamento</span><h3 style="font-size:var(--text-lg)">${day.name}</h3></div>
+    <div style="text-align:right"><div class="display" id="workTimer" style="font-size:var(--text-lg);color:var(--brand)">0:00</div><span class="faint" style="font-size:var(--text-xs)">tempo</span></div></div>`;
   html+=`<div style="margin-top:var(--sp-4)">`;
   day.exercises.forEach(ex=>{
     const logs = live?.logs?.[ex.id]||[];
@@ -736,25 +752,14 @@ function renderTodayWorkout(){
     const sugg = progressionHint(ex, logs);
     html+=`<div class="ex"><div class="row between">
       <div><b>${ex.name}</b><div class="faint" style="font-size:var(--text-xs)">${ex.muscle} · ${ex.sets}×${ex.reps} · ${fmt(ex.load,1)}${S.prefs.unit}</div></div>
-      ${sugg?`<span class="tag">${sugg}</span>`:""}
-    </div>`;
-    if(live){
-      html+=`<div class="sets">`;
-      for(let i=0;i<ex.sets;i++) html+=`<button class="setbtn ${doneSets[i]?'done':''}" onclick="toggleSet('${ex.id}',${i})">S${i+1}</button>`;
-      html+=`<button class="setbtn" title="Registrar séries" onclick="openSetLog('${ex.id}')">✎</button></div>`;
-    }
-    html+=`</div>`;
+      ${sugg?`<span class="tag">${sugg}</span>`:""}</div>
+      <div class="sets">${Array.from({length:ex.sets},(_,i)=>`<button class="setbtn ${doneSets[i]?'done':''}" onclick="toggleSet('${ex.id}',${i})">S${i+1}</button>`).join("")}
+      <button class="setbtn" title="Registrar séries" onclick="openSetLog('${ex.id}')">✎</button></div></div>`;
   });
-  html+=`</div><div class="row" style="margin-top:var(--sp-5);gap:var(--sp-3)">`;
-  if(!live){
-    html+=`<button class="btn btn-primary grow" onclick="startWorkout(${dayIdx})">▶ Iniciar treino</button>
-           <button class="btn" onclick="openGuided(${dayIdx})">🎯 Guiado</button>`;
-  } else {
-    html+=`<button class="btn btn-primary grow" onclick="finishWorkout()">■ Finalizar treino</button>
-           <button class="btn" onclick="openGuided(${live.dayIdx})">🎯 Guiado</button>
-           <button class="btn btn-danger" onclick="cancelWorkout()">Cancelar</button>`;
-  }
-  html+=`</div>`;
+  html+=`</div><div class="row" style="margin-top:var(--sp-5);gap:var(--sp-3)">
+    <button class="btn btn-primary grow" onclick="finishWorkout()">■ Finalizar treino</button>
+    <button class="btn" onclick="openGuided(${live.dayIdx})">🎯 Guiado</button>
+    <button class="btn btn-danger" onclick="cancelWorkout()">Cancelar</button></div>`;
   el.innerHTML=html;
 }
 
@@ -880,37 +885,48 @@ async function renderDietPanel(){
   const tot=foods.reduce((a,f)=>({kcal:a.kcal+f.kcal,protein:a.protein+f.protein,carb:a.carb+f.carb,fat:a.fat+f.fat}),{kcal:0,protein:0,carb:0,fat:0});
   const water=await DB.kvGet("water_"+tk,0);
   const g=S.goals;
-  const macro=(lbl,v,goal,unit="g")=>`<div class="stat"><div class="v">${fmt(v)}<small>/${fmt(goal)}${unit}</small></div><div class="bar" style="margin-top:6px"><i style="width:${clamp(v/goal*100,0,100)}%"></i></div><div class="l">${lbl}</div></div>`;
+  const pct=(v,goal)=>clamp(v/goal*100,0,100);
+  const bar=(lbl,v,goal,unit,hi)=>`<div><div class="row between"><span class="muted" style="font-size:var(--text-sm)">${lbl}</span><b${hi?' style="color:var(--brand)"':''}>${fmt(v)}/${fmt(goal)}${unit}</b></div><div class="bar" style="margin-top:6px"><i style="width:${pct(v,goal)}%"></i></div></div>`;
 
-  // fasting
+  // Jejum — compacto
   let fastHtml;
   if(S.fastingActive){
-    const target=FASTS[S.fastingActive.protocol]||0;
-    fastHtml=`<div class="row between"><div><span class="eyebrow">⏱ Jejum · ${S.fastingActive.protocol}</span>
-      <div class="display" id="fastTimer" style="font-size:var(--text-xl);color:var(--brand)">0:00</div>
-      ${target?`<span class="faint" style="font-size:var(--text-xs)">meta ${target}h</span>`:""}</div>
-      <button class="btn btn-danger" onclick="stopFast()">Encerrar</button></div>`;
+    fastHtml=`<div class="row between"><div class="row" style="gap:10px"><span class="eyebrow">⏱ Jejum ${S.fastingActive.protocol}</span><span class="display" id="fastTimer" style="color:var(--brand)">0:00</span></div>
+      <button class="btn btn-sm btn-danger" onclick="stopFast()">Encerrar</button></div>`;
   } else {
-    fastHtml=`<div class="row between wrap"><span class="eyebrow">⏱ Jejum intermitente</span>
-      <div class="row wrap" style="gap:6px">${Object.keys(FASTS).map(p=>`<button class="chip" onclick="startFast('${p}')">${p}</button>`).join("")}</div></div>`;
+    fastHtml=`<details><summary class="row between" style="cursor:pointer;list-style:none"><span class="eyebrow">⏱ Jejum intermitente</span><span class="faint" style="font-size:var(--text-xs)">iniciar ▸</span></summary>
+      <div class="row wrap" style="gap:6px;margin-top:12px">${Object.keys(FASTS).map(p=>`<button class="chip" onclick="startFast('${p}')">${p}</button>`).join("")}</div></details>`;
   }
 
   $("#dietPanel").innerHTML=`
-    <div>${fastHtml}</div><hr class="divider">
-    <div class="row between"><span class="eyebrow">Macros de hoje</span><button class="chip" onclick="openGoals()">⚙ Metas</button></div>
-    <div class="stat-grid" style="margin-top:12px">
-      <div class="stat"><div class="v">${fmt(tot.kcal)}<small>/${fmt(g.kcal)}</small></div><div class="bar" style="margin-top:6px"><i style="width:${clamp(tot.kcal/g.kcal*100,0,100)}%"></i></div><div class="l">kcal</div></div>
-      ${macro("Proteína",tot.protein,g.protein)}${macro("Carbo",tot.carb,g.carb)}${macro("Gordura",tot.fat,g.fat)}
+    <div class="card">
+      <div class="row between"><span class="eyebrow">Nutrição de hoje</span><button class="chip" onclick="openGoals()">⚙ Metas</button></div>
+      <div class="grid-2" style="margin-top:14px;gap:16px">
+        ${bar("Calorias",tot.kcal,g.kcal,"")}
+        ${bar("Proteína 💪",tot.protein,g.protein,"g",true)}
+      </div>
+      <div class="row wrap" style="gap:8px;margin-top:14px">
+        <span class="chip">Carbo ${fmt(tot.carb)}/${fmt(g.carb)}g</span>
+        <span class="chip">Gordura ${fmt(tot.fat)}/${fmt(g.fat)}g</span>
+        <span class="chip">💧 ${fmt(water)}/${fmt(g.water)}ml</span>
+      </div>
+      <div class="row" style="gap:8px;margin-top:16px">
+        <button class="btn btn-primary grow" onclick="openAddFood()">+ Registrar refeição</button>
+        <button class="btn" onclick="openShoppingList()" title="Lista de compras">🛒</button>
+      </div>
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button class="btn btn-sm grow" onclick="addWater(250)">+250 ml</button>
+        <button class="btn btn-sm grow" onclick="addWater(500)">+500 ml</button>
+        <button class="btn btn-sm" onclick="addWater(-99999)" title="Zerar água">↺</button>
+      </div>
+      <details style="margin-top:16px">
+        <summary style="cursor:pointer;font-weight:600;font-size:var(--text-sm)">Alimentos de hoje (${foods.length})</summary>
+        <div style="margin-top:8px">${foods.length?foods.map(f=>`
+          <div class="listrow"><div class="grow"><b>${f.name}</b><div class="faint" style="font-size:var(--text-xs)">${f.qty?fmt(f.qty)+'g · ':''}${fmt(f.kcal)}kcal · P${fmt(f.protein)} C${fmt(f.carb)} G${fmt(f.fat)}</div></div>
+          <button class="del" onclick="delFood('${f.id}')" aria-label="Remover">✕</button></div>`).join(""):`<p class="faint" style="font-size:var(--text-sm);padding:8px 0">Nenhum alimento ainda. Toque em <b>+ Registrar refeição</b>.</p>`}</div>
+      </details>
     </div>
-    <hr class="divider">
-    <div class="row between"><span class="eyebrow">💧 Água</span><b>${fmt(water)} / ${fmt(g.water)} ml</b></div>
-    <div class="bar" style="margin:10px 0"><i style="width:${clamp(water/g.water*100,0,100)}%"></i></div>
-    <div class="row" style="gap:8px"><button class="btn btn-sm grow" onclick="addWater(250)">+250 ml</button><button class="btn btn-sm grow" onclick="addWater(500)">+500 ml</button><button class="btn btn-sm" onclick="addWater(-99999)">↺</button></div>
-    <hr class="divider">
-    <div class="row between"><span class="eyebrow">Alimentos de hoje</span><div class="row" style="gap:6px"><button class="chip" onclick="openShoppingList()">🛒 Compras</button><button class="chip active" onclick="openAddFood()">+ Adicionar</button></div></div>
-    <div id="foodList" style="margin-top:10px">${foods.length?foods.map(f=>`
-      <div class="listrow"><div class="grow"><b>${f.name}</b><div class="faint" style="font-size:var(--text-xs)">${fmt(f.qty)}g · ${fmt(f.kcal)}kcal · P${fmt(f.protein)} C${fmt(f.carb)} G${fmt(f.fat)}</div></div>
-      <button class="del" onclick="delFood('${f.id}')" aria-label="Remover">✕</button></div>`).join(""):`<p class="faint" style="font-size:var(--text-sm);padding:8px 0">Nenhum alimento ainda. Toque em <b>+ Adicionar</b>.</p>`}</div>`;
+    <div class="card">${fastHtml}</div>`;
 }
 async function addWater(ml){
   const tk=todayKey(); let w=await DB.kvGet("water_"+tk,0);
