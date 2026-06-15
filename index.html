@@ -388,9 +388,13 @@ canvas { max-width:100%; }
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script>
 /* ====================================================================
-   TARTA FIT — Web. Single-file. IndexedDB. GPS. Coach IA (Claude).
+   TARTA FIT — Web. Single-file. IndexedDB (cache) + Firebase (nuvem).
+   GPS. Coach IA (Claude).
    ==================================================================== */
 "use strict";
 const $ = (s,r=document)=>r.querySelector(s);
@@ -421,13 +425,125 @@ const DB = (()=>{
   return {
     open,
     async kvGet(k,def=null){ const v=await req(tx("kv").get(k)); return v? v.v : def; },
-    async kvSet(k,v){ return req(tx("kv","readwrite").put({k,v})); },
+    async kvSet(k,v){ const r=await req(tx("kv","readwrite").put({k,v})); afterWrite(); return r; },
+    async allKv(){ return req(tx("kv").getAll()); },
     async all(store){ return req(tx(store).getAll()); },
-    async put(store,obj){ if(!obj.id) obj.id=uid(); await req(tx(store,"readwrite").put(obj)); return obj; },
-    async del(store,id){ return req(tx(store,"readwrite").delete(id)); },
+    async put(store,obj){ if(!obj.id) obj.id=uid(); await req(tx(store,"readwrite").put(obj)); afterWrite(); return obj; },
+    async del(store,id){ await req(tx(store,"readwrite").delete(id)); afterWrite(); },
     async clearAll(){ for(const s of STORES) await req(tx(s,"readwrite").clear()); }
   };
 })();
+
+/* ---------------------- Cloud (Firebase) ----------------------
+   Login + sincronização. O estado da web é guardado no campo `web` do
+   documento users/{uid}, com merge — NÃO toca nos dados do app Android. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDVQuRYR0B2PHK7YSlb20Oo7ptuz3k7x7g",
+  authDomain: "fittrack-ac09f.firebaseapp.com",
+  projectId: "fittrack-ac09f",
+  storageBucket: "fittrack-ac09f.firebasestorage.app",
+  messagingSenderId: "275794509385",
+  appId: "1:275794509385:web:bb1c9b0a16244e621d8998",
+};
+let fbAuth=null, fbDB=null, cloudUser=null, _syncTimer=null, _hydrating=false;
+function initFirebase(){
+  try{
+    if(typeof firebase==="undefined") return;
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth=firebase.auth(); fbDB=firebase.firestore();
+    fbAuth.onAuthStateChanged(async u=>{ cloudUser=u; if(u){ await syncDown(u.uid); } updateAuthUI(); });
+  }catch(e){ console.warn("Firebase indisponível:",e.message); }
+}
+function updateAuthUI(){ const b=$("#profileBtn"); if(b) b.style.boxShadow = cloudUser? "0 0 0 2px var(--brand)" : ""; }
+function afterWrite(){ if(cloudUser && !_hydrating) scheduleSync(); }
+function scheduleSync(){ clearTimeout(_syncTimer); _syncTimer=setTimeout(syncUp, 2500); }
+async function buildSnapshot(){
+  const data={ v:1, updatedAt:Date.now(), kv:{}, stores:{} };
+  for(const s of ["sessions","foods","body","activities","fasting"]) data.stores[s]=await DB.all(s);
+  const kv=await DB.allKv();
+  kv.forEach(({k,v})=>{ if(k!=="coach") data.kv[k]=v; }); // chave da IA fica só local
+  return data;
+}
+async function syncUp(){
+  if(!cloudUser||!fbDB) return;
+  try{ const snap=await buildSnapshot();
+    // serializa em string: Firestore não aceita arrays aninhados (percurso GPS)
+    await fbDB.collection("users").doc(cloudUser.uid).set({ web: JSON.stringify(snap), webUpdatedAt: firebase.firestore.FieldValue.serverTimestamp() }, {merge:true});
+  }catch(e){ console.warn("syncUp falhou:",e.message); }
+}
+async function syncDown(uid){
+  if(!fbDB) return;
+  try{
+    const doc=await fbDB.collection("users").doc(uid).get();
+    const raw=doc.exists ? doc.data().web : null;
+    const web = typeof raw==="string" ? JSON.parse(raw) : raw;
+    if(web && (Object.keys(web.kv||{}).length || Object.values(web.stores||{}).some(a=>a.length))){
+      await hydrate(web);             // nuvem tem dados → traz para este aparelho
+    } else {
+      await syncUp();                 // nuvem vazia → manda o que há local
+    }
+  }catch(e){ console.warn("syncDown falhou:",e.message); }
+}
+async function hydrate(web){
+  _hydrating=true;
+  try{
+    await DB.clearAll();
+    for(const [k,v] of Object.entries(web.kv||{})) await DB.kvSet(k,v);
+    for(const [s,arr] of Object.entries(web.stores||{})) for(const o of (arr||[])) await DB.put(s,o);
+    await reloadState(); renderAll();
+  } finally { _hydrating=false; }
+}
+async function reloadState(){
+  S.goals=await DB.kvGet("goals",{...DEFAULT_GOALS});
+  S.profile=await DB.kvGet("profile",{...DEFAULT_PROFILE});
+  S.plan=await DB.kvGet("plan",structuredClone(DEFAULT_PLAN));
+  S.prefs={...S.prefs,...(await DB.kvGet("prefs",{}))};
+  S.fastingActive=await DB.kvGet("fastingActive",null);
+  applyTheme(S.prefs.theme);
+}
+/* Conta UI */
+async function openAccount(){
+  if(cloudUser){
+    openSheet(`<h2>👤 Conta</h2>
+      <div class="card" style="background:var(--surface-2)"><div class="row" style="gap:12px"><span style="font-size:22px">☁️</span>
+      <div><div class="faint" style="font-size:var(--text-xs)">Sincronizado como</div><b>${cloudUser.email}</b></div></div></div>
+      <p class="muted" style="font-size:var(--text-sm);margin:14px 0">Seus dados sincronizam automaticamente na nuvem e em todos os seus aparelhos.</p>
+      <button class="btn btn-block" onclick="cloudSyncNow()">↻ Sincronizar agora</button>
+      <button class="btn btn-danger btn-block" style="margin-top:10px" onclick="cloudLogout()">Sair da conta</button>`);
+    return;
+  }
+  openSheet(`<h2>👤 Conta — nuvem ☁️</h2>
+    <p class="muted" style="font-size:var(--text-sm);margin-bottom:14px">Entre para <b>sincronizar seus dados entre aparelhos</b> e ter backup automático. Usa a mesma conta do app Android.</p>
+    <div class="field"><label>E-mail</label><input class="input" id="ac-email" type="email" autocomplete="email" placeholder="voce@email.com"></div>
+    <div class="field"><label>Senha</label><input class="input" id="ac-pass" type="password" autocomplete="current-password" placeholder="mín. 6 caracteres"></div>
+    <button class="btn btn-primary btn-block" onclick="cloudLogin()">Entrar</button>
+    <button class="btn btn-block" style="margin-top:10px" onclick="cloudSignup()">Criar conta nova</button>
+    <div id="ac-msg" class="faint" style="font-size:var(--text-sm);margin-top:12px"></div>`);
+}
+const _acMsg=(m,err)=>{ const e=$("#ac-msg"); if(e){ e.textContent=m; e.style.color=err?"var(--danger)":"var(--text-muted)"; } };
+async function cloudLogin(){
+  if(!fbAuth){ _acMsg("Nuvem indisponível (sem conexão?)",true); return; }
+  const em=$("#ac-email").value.trim(), pw=$("#ac-pass").value;
+  _acMsg("Entrando...");
+  try{ await fbAuth.signInWithEmailAndPassword(em,pw); closeSheet(); toast("Conectado ☁️ sincronizando...","ok"); }
+  catch(e){ _acMsg(authErr(e),true); }
+}
+async function cloudSignup(){
+  if(!fbAuth){ _acMsg("Nuvem indisponível (sem conexão?)",true); return; }
+  const em=$("#ac-email").value.trim(), pw=$("#ac-pass").value;
+  _acMsg("Criando conta...");
+  try{ await fbAuth.createUserWithEmailAndPassword(em,pw); closeSheet(); toast("Conta criada ☁️ seus dados foram enviados","ok"); }
+  catch(e){ _acMsg(authErr(e),true); }
+}
+async function cloudLogout(){ await fbAuth.signOut(); cloudUser=null; updateAuthUI(); closeSheet(); toast("Você saiu da conta"); }
+async function cloudSyncNow(){ await syncUp(); toast("Sincronizado ☁️","ok"); }
+function authErr(e){ const m=e.code||"";
+  if(m.includes("invalid-credential")||m.includes("wrong-password")||m.includes("user-not-found")) return "E-mail ou senha incorretos.";
+  if(m.includes("email-already-in-use")) return "Esse e-mail já tem conta — use Entrar.";
+  if(m.includes("weak-password")) return "Senha fraca (mín. 6 caracteres).";
+  if(m.includes("invalid-email")) return "E-mail inválido.";
+  if(m.includes("network")) return "Sem conexão com a internet.";
+  return e.message||"Erro ao autenticar."; }
 
 /* ---------------------- App State ---------------------- */
 const DEFAULT_GOALS = { kcal:1800, protein:180, carb:145, fat:55, water:3300 };
@@ -530,6 +646,7 @@ async function boot(){
   renderAll();
   tickClock();
   setInterval(tickClock, 1000);
+  initFirebase();
 }
 function tickClock(){ // live fasting + workout timers
   if(S.fastingActive){ const el=$("#fastTimer"); if(el) el.textContent=hms((Date.now()-S.fastingActive.start)/1000); }
@@ -1094,6 +1211,7 @@ function openProfile(){
       ${menuItem("gps","🛰️","Atividade (GPS)","Corrida, caminhada, pedalada")}
       ${menuItem("tools","🛠","Ferramentas","1RM, anilhas, aquecimento")}
       ${menuItem("ach","🏆","Conquistas","Suas medalhas")}
+      ${menuItem("account","☁️","Conta & sincronização","Login e nuvem")}
       ${menuItem("calc","🧮","Calculadora de metas","Recalcular kcal/macros")}
       ${menuItem("profile","👤","Perfil & objetivo","Seus dados")}
       ${menuItem("backup","⬇","Backup","Exportar / importar dados")}
@@ -1104,7 +1222,7 @@ function openProfile(){
 }
 function menuItem(key,em,title,sub){ return `<button data-menu="${key}"><span class="ic" style="font-size:18px">${em}</span><span class="grow"><div>${title}</div><div class="faint" style="font-size:var(--text-xs);font-weight:500">${sub}</div></span><span class="faint">▸</span></button>`; }
 function profileAction(k){
-  ({coach:openCoach,gps:openGPS,tools:openTools,ach:openAchievements,calc:openCalc,profile:openProfileEdit,backup:openBackup,settings:openSettings,about:openAbout})[k]?.();
+  ({coach:openCoach,gps:openGPS,tools:openTools,ach:openAchievements,account:openAccount,calc:openCalc,profile:openProfileEdit,backup:openBackup,settings:openSettings,about:openAbout})[k]?.();
 }
 
 /* ---- Coach IA (Claude) ---- */
@@ -1364,7 +1482,7 @@ function toast(msg,kind=""){ const t=document.createElement("div"); t.className=
 function download(name,content){ const b=new Blob([content],{type:"application/json"}); const u=URL.createObjectURL(b);
   const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
 /* expose for inline handlers */
-Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit});
+Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow});
 
 boot().catch(e=>{ document.body.innerHTML=`<div style="padding:40px;font-family:sans-serif">Erro ao iniciar: ${e.message}. Seu navegador suporta IndexedDB?</div>`; });
 </script>
