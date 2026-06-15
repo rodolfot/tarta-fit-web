@@ -891,7 +891,7 @@ async function renderDietPanel(){
     <div class="bar" style="margin:10px 0"><i style="width:${clamp(water/g.water*100,0,100)}%"></i></div>
     <div class="row" style="gap:8px"><button class="btn btn-sm grow" onclick="addWater(250)">+250 ml</button><button class="btn btn-sm grow" onclick="addWater(500)">+500 ml</button><button class="btn btn-sm" onclick="addWater(-99999)">↺</button></div>
     <hr class="divider">
-    <div class="row between"><span class="eyebrow">Alimentos de hoje</span><button class="chip active" onclick="openAddFood()">+ Adicionar</button></div>
+    <div class="row between"><span class="eyebrow">Alimentos de hoje</span><div class="row" style="gap:6px"><button class="chip" onclick="openShoppingList()">🛒 Compras</button><button class="chip active" onclick="openAddFood()">+ Adicionar</button></div></div>
     <div id="foodList" style="margin-top:10px">${foods.length?foods.map(f=>`
       <div class="listrow"><div class="grow"><b>${f.name}</b><div class="faint" style="font-size:var(--text-xs)">${fmt(f.qty)}g · ${fmt(f.kcal)}kcal · P${fmt(f.protein)} C${fmt(f.carb)} G${fmt(f.fat)}</div></div>
       <button class="del" onclick="delFood('${f.id}')" aria-label="Remover">✕</button></div>`).join(""):`<p class="faint" style="font-size:var(--text-sm);padding:8px 0">Nenhum alimento ainda. Toque em <b>+ Adicionar</b>.</p>`}</div>`;
@@ -929,6 +929,14 @@ const DAYS=[
   {nm:"Dia 1", idx:[0,4,8,14]},
   {nm:"Dia 2", idx:[1,6,10,13]},
   {nm:"Dia 3", idx:[3,5,9,12]},
+];
+// Lista de compras da semana (cobre as 16 refeições)
+const SHOP=[
+  {cat:"🥩 Proteínas", items:["Peito de frango (~1,5 kg)","Patinho/carne magra (~1 kg)","Tilápia ou peixe branco (~800 g)","Atum em lata (3–4 latas)","Ovos (2 dúzias)","Whey protein (1 pote)"]},
+  {cat:"🥛 Laticínios", items:["Iogurte natural desnatado ou grego (7 un)","Leite desnatado (2 L)","Queijo cottage (1 pote)","Requeijão light (1 pote)","Queijo magro/mussarela light (200 g)"]},
+  {cat:"🍚 Carboidratos", items:["Arroz","Feijão","Batata e batata-doce","Aveia","Pão integral / torradas","Goma de tapioca","Wrap/tortilha integral"]},
+  {cat:"🥦 Frutas & legumes", items:["Banana","Frutas vermelhas (pode ser congelada)","Brócolis","Tomate","Legumes variados (cenoura, abobrinha…)","Salada (alface, rúcula…)"]},
+  {cat:"🧂 Tempero & mercearia", items:["Alho e cebola","Limão","Páprica, curry, orégano","Shoyu e mostarda","Azeite","Sal"]},
 ];
 function openAddFood(){
   const cats=[...new Set(MEALS.map(m=>m.cat))];
@@ -990,6 +998,26 @@ async function addFullDay(d){
   const day=DAYS[d]; if(!day) return; const half=$("#meal-half")?.checked;
   let totP=0; for(const i of day.idx) totP+=await _putMeal(i,half);
   closeSheet(); renderDietPanel(); renderMission(); toast(`${day.nm}${half?" (½)":""} lançado: 4 refeições · ${totP}g proteína 🍱`,"ok");
+}
+function shopText(){ return "🛒 Lista de compras — Tarta Fit\n\n"+SHOP.map(s=>s.cat+"\n"+s.items.map(i=>"• "+i).join("\n")).join("\n\n"); }
+function openShoppingList(){
+  openSheet(`<h2>🛒 Lista de compras da semana</h2>
+    <p class="faint" style="font-size:var(--text-xs);margin-bottom:14px">Cobre as 16 refeições da sua dieta. Marque o que já tem; compartilhe pra levar ao mercado.</p>
+    ${SHOP.map(s=>`<div style="margin-bottom:16px"><div class="eyebrow" style="margin-bottom:8px">${s.cat}</div>
+      ${s.items.map(it=>`<label class="row" style="gap:10px;padding:7px 0;font-size:var(--text-sm)"><input type="checkbox" style="width:20px;height:20px;accent-color:var(--brand)"> <span>${it}</span></label>`).join("")}</div>`).join("")}
+    <div class="row" style="gap:10px;margin-top:6px">
+      <button class="btn btn-primary grow" onclick="shareShop()">Compartilhar</button>
+      <button class="btn grow" onclick="copyShop()">Copiar</button>
+    </div>`);
+}
+async function shareShop(){
+  const t=shopText();
+  if(navigator.share){ try{ await navigator.share({title:"Lista de compras",text:t}); return; }catch(e){} }
+  copyShop();
+}
+async function copyShop(){
+  try{ await navigator.clipboard.writeText(shopText()); toast("Lista copiada 📋","ok"); }
+  catch(e){ toast("Não consegui copiar — selecione e copie manual","err"); }
 }
 async function searchOFF(){
   const q=$("#off-q").value.trim(); if(!q) return;
@@ -1538,7 +1566,7 @@ function toast(msg,kind=""){ const t=document.createElement("div"); t.className=
 function download(name,content){ const b=new Blob([content],{type:"application/json"}); const u=URL.createObjectURL(b);
   const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
 /* expose for inline handlers */
-Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,addMeal,addFullDay,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow});
+Object.assign(window,{toggleSet,openSetLog,saveSetLog,startWorkout,finishWorkout,cancelWorkout,openGuided,addWater,delFood,openAddFood,addMeal,addFullDay,openShoppingList,shareShop,copyShop,searchOFF,pickOFF,confirmOFF,addManualFood,addQuickFood,startFast,stopFast,openGoals,suggestWater,saveGoals,renameDay,editEx,delExercise,addExercise,confirmAddEx,addDay,genWorkout,doGenWorkout,openPresets,applyPreset,exportPlan,importPlan,openCalc,calcGoals,saveBody,goScreen,openCoach,saveCoach,coachSend,coachQuick,gpsStart,gpsPause,gpsFinish,calc1rm,calcPlates,calcWarmup,saveProfile,saveSettings,exportAll,importAll,wipe,openProfileEdit,openAccount,cloudLogin,cloudSignup,cloudLogout,cloudSyncNow});
 
 boot().catch(e=>{ document.body.innerHTML=`<div style="padding:40px;font-family:sans-serif">Erro ao iniciar: ${e.message}. Seu navegador suporta IndexedDB?</div>`; });
 </script>
